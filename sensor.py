@@ -142,6 +142,7 @@ class DockerContainerSensor(SensorEntity):
             CONF_CREATED: created,
             CONF_IMAGE: image_name,
             CONF_UPDATE_AVAILABLE: update_available,
+            "host": options.get(CONF_HOST, ""),
         }
 
         if update_available and options.get(CONF_AUTO_UPDATE, False):

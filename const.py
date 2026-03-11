@@ -32,3 +32,12 @@ DEFAULT_TIMEOUT = 60
 
 DOCKER_SERVICES_EXECUTABLE = "docker_services"
 DOCKER_CREATE_EXECUTABLE = "docker_create"
+
+URL_BASE = "/ssh_docker"
+SSH_DOCKER_CARDS = [
+    {
+        "name": "SSH Docker Panel",
+        "filename": "ssh-docker-panel.js",
+        "version": "1.0.0",
+    }
+]

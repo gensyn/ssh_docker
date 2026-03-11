@@ -3,7 +3,7 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch, AsyncMock
 
 absolute_mock_path = str(Path(__file__).parent / "homeassistant_mock")
 sys.path.insert(0, absolute_mock_path)
@@ -26,7 +26,9 @@ class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
         mock_hass.services = MagicMock()
         mock_hass.services.async_register = MagicMock()
 
-        result = await async_setup(mock_hass, {})
+        with patch("ssh_docker.SshDockerPanelRegistration") as mock_panel_cls:
+            mock_panel_cls.return_value.async_register = AsyncMock()
+            result = await async_setup(mock_hass, {})
 
         self.assertTrue(result)
         registered_calls = mock_hass.services.async_register.call_args_list
@@ -48,9 +50,25 @@ class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
         mock_hass.services = MagicMock()
         mock_hass.services.async_register = MagicMock()
 
-        result = await async_setup(mock_hass, {})
+        with patch("ssh_docker.SshDockerPanelRegistration") as mock_panel_cls:
+            mock_panel_cls.return_value.async_register = AsyncMock()
+            result = await async_setup(mock_hass, {})
 
         self.assertTrue(result)
+
+    async def test_panel_registration_is_called(self):
+        """Test that the panel registration is called during async_setup."""
+        mock_hass = MagicMock()
+        mock_hass.services = MagicMock()
+        mock_hass.services.async_register = MagicMock()
+
+        with patch("ssh_docker.SshDockerPanelRegistration") as mock_panel_cls:
+            mock_register = AsyncMock()
+            mock_panel_cls.return_value.async_register = mock_register
+            await async_setup(mock_hass, {})
+
+        mock_panel_cls.assert_called_once_with(mock_hass)
+        mock_register.assert_awaited_once()
 
 
 if __name__ == "__main__":

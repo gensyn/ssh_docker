@@ -62,6 +62,7 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sensor._attr_extra_state_attributes[CONF_IMAGE], "nginx:latest")
         self.assertEqual(sensor._attr_extra_state_attributes[CONF_CREATED], "2023-01-01T00:00:00Z")
         self.assertFalse(sensor._attr_extra_state_attributes[CONF_UPDATE_AVAILABLE])
+        self.assertEqual(sensor._attr_extra_state_attributes["host"], "192.168.1.100")
 
     async def test_update_sets_unavailable_when_container_not_found(self):
         """Test that a failed inspect sets the state to unavailable."""

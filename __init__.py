@@ -23,6 +23,7 @@ from .const import (
     DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
     DOCKER_SERVICES_EXECUTABLE, DOCKER_CREATE_EXECUTABLE,
 )
+from .frontend import SshDockerPanelRegistration
 from .sensor import DockerContainerSensor
 
 _PLATFORMS: list[Platform] = [Platform.SENSOR]
@@ -87,6 +88,8 @@ def _get_entry_for_entity(hass: HomeAssistant, entity_id: str) -> ConfigEntry:
 
 async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
     """Set up the SSH Docker integration and register services."""
+    panel = SshDockerPanelRegistration(hass)
+    await panel.async_register()
 
     async def async_create(service_call: ServiceCall) -> None:
         """Create a docker container using the docker_create executable."""
