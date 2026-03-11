@@ -1,0 +1,16 @@
+{
+  "domain": "ssh_docker",
+  "name": "SSH Docker",
+  "codeowners": ["@gensyn"],
+  "config_flow": true,
+  "dependencies": ["ssh_command"],
+  "documentation": "https://github.com/gensyn/ssh_docker",
+  "homekit": {},
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/gensyn/ssh_docker/issues",
+  "quality_scale": "bronze",
+  "requirements": [],
+  "ssdp": [],
+  "version": "0.0.0",
+  "zeroconf": []
+}
