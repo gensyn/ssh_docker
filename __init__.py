@@ -21,7 +21,7 @@ from .const import (
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS,
     SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE,
     DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
-    DOCKER_SERVICES_EXECUTABLE, DOCKER_CREATE_EXECUTABLE,
+    DOCKER_SERVICES_EXECUTABLE, DOCKER_CREATE_EXECUTABLE, DOCKER_CREATE_TIMEOUT,
 )
 from .frontend import SshDockerPanelRegistration
 from .sensor import DockerContainerSensor
@@ -38,7 +38,12 @@ SERVICE_ENTITY_SCHEMA = vol.Schema(
 )
 
 
-async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str) -> tuple[str, int]:
+async def _ssh_run(
+    hass: HomeAssistant,
+    options: dict[str, Any],
+    command: str,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> tuple[str, int]:
     """Execute a command via ssh_command service. Returns (stdout, exit_status)."""
     _LOGGER.debug(
         "Running SSH command on %s: %s", options.get(CONF_HOST, "<unknown>"), command
@@ -48,7 +53,7 @@ async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str) -
         CONF_USERNAME: options[CONF_USERNAME],
         "check_known_hosts": options.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
         "command": command,
-        "timeout": DEFAULT_TIMEOUT,
+        "timeout": timeout,
     }
     if options.get(CONF_PASSWORD):
         service_data[CONF_PASSWORD] = options[CONF_PASSWORD]
@@ -134,12 +139,15 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
                     translation_key="docker_create_not_found",
                 )
 
+            # Use if/then/else to run docker_create exactly once and preserve its exit code.
             create_cmd = (
-                f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1"
-                f" && {DOCKER_CREATE_EXECUTABLE} {name}"
-                f" || /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}"
+                f"if command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1;"
+                f" then {DOCKER_CREATE_EXECUTABLE} {name};"
+                f" else /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}; fi"
             )
-            _, exit_status = await _ssh_run(hass, options, create_cmd)
+            _, exit_status = await _ssh_run(
+                hass, options, create_cmd, timeout=DOCKER_CREATE_TIMEOUT
+            )
             if exit_status != 0:
                 _LOGGER.error(
                     "Service 'create': %s failed for container %s (exit status %d)",

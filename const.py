@@ -29,6 +29,7 @@ DEFAULT_DOCKER_COMMAND = "docker"
 DEFAULT_CHECK_KNOWN_HOSTS = True
 DEFAULT_AUTO_UPDATE = False
 DEFAULT_TIMEOUT = 60
+DOCKER_CREATE_TIMEOUT = 600  # 10 minutes – container creation can take a long time
 
 DOCKER_SERVICES_EXECUTABLE = "docker_services"
 DOCKER_CREATE_EXECUTABLE = "docker_create"

@@ -17,9 +17,15 @@ class SshDockerPanel extends HTMLElement {
 
   _getAllContainers() {
     if (!this._hass) return [];
-    return Object.values(this._hass.states).filter((entity) =>
+    const containers = Object.values(this._hass.states).filter((entity) =>
       entity.entity_id.startsWith("sensor.ssh_docker_")
     );
+    // Always sort alphabetically by display name.
+    return containers.sort((a, b) => {
+      const nameA = (a.attributes && a.attributes.friendly_name) || a.entity_id;
+      const nameB = (b.attributes && b.attributes.friendly_name) || b.entity_id;
+      return nameA.localeCompare(nameB);
+    });
   }
 
   _getFilteredContainers() {
@@ -73,14 +79,20 @@ class SshDockerPanel extends HTMLElement {
     const entityId = entity.entity_id;
 
     // Conditional button visibility per the requirements.
-    const showCreate  = attrs.docker_create_available === true;
-    const showRestart = state === "running";
-    const showStop    = state === "running";
-    const showRemove  = state !== "unavailable";
+    // Create/Recreate: only if docker_create is available; label changes based on container state.
+    const showCreate   = attrs.docker_create_available === true;
+    const createLabel  = state !== "unavailable" ? "✚ Recreate" : "✚ Create";
+    // Start/Restart: show for running (Restart) or stopped states (Start).
+    const stoppedStates = ["exited", "created", "dead", "paused"];
+    const showRestart  = state === "running";
+    const showStart    = stoppedStates.includes(state);
+    const showStop     = state === "running";
+    const showRemove   = state !== "unavailable";
 
     const actionButtons = [
-      showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">✚ Create</button>`  : "",
+      showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
       showRestart ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">↺ Restart</button>` : "",
+      showStart   ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">▶ Start</button>`   : "",
       showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">■ Stop</button>`    : "",
       showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">🗑 Remove</button>`  : "",
       `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">↻ Refresh</button>`,
