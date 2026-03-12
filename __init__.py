@@ -24,7 +24,7 @@ from .const import (
     DOCKER_SERVICES_EXECUTABLE, DOCKER_CREATE_EXECUTABLE, DOCKER_CREATE_TIMEOUT,
 )
 from .frontend import SshDockerPanelRegistration
-from .sensor import DockerContainerSensor
+from .sensor import DockerContainerSensor, _SSH_SEMAPHORE
 
 _PLATFORMS: list[Platform] = [Platform.SENSOR]
 _LOGGER = logging.getLogger(__name__)
@@ -44,7 +44,10 @@ async def _ssh_run(
     command: str,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> tuple[str, int]:
-    """Execute a command via ssh_command service. Returns (stdout, exit_status)."""
+    """Execute a command via ssh_command service. Returns (stdout, exit_status).
+
+    Concurrent executions are limited by the shared _SSH_SEMAPHORE from sensor.py.
+    """
     _LOGGER.debug(
         "Running SSH command on %s: %s", options.get(CONF_HOST, "<unknown>"), command
     )
@@ -62,13 +65,14 @@ async def _ssh_run(
     if options.get(CONF_KNOWN_HOSTS):
         service_data["known_hosts"] = options[CONF_KNOWN_HOSTS]
 
-    response = await hass.services.async_call(
-        SSH_COMMAND_DOMAIN,
-        SSH_COMMAND_SERVICE_EXECUTE,
-        service_data,
-        blocking=True,
-        return_response=True,
-    )
+    async with _SSH_SEMAPHORE:
+        response = await hass.services.async_call(
+            SSH_COMMAND_DOMAIN,
+            SSH_COMMAND_SERVICE_EXECUTE,
+            service_data,
+            blocking=True,
+            return_response=True,
+        )
     output = (response or {}).get(SSH_CONF_OUTPUT, "").strip()
     exit_status = (response or {}).get(SSH_CONF_EXIT_STATUS, 1)
     # asyncssh returns None for signal-based terminations; normalize to -1

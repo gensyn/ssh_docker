@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from datetime import timedelta
@@ -29,6 +30,13 @@ _LOGGER = logging.getLogger(__name__)
 
 SCAN_INTERVAL = timedelta(hours=24)
 
+# Shared semaphore that limits the total number of concurrent SSH calls across
+# all sensors and service handlers.  This prevents overloading the ssh_command
+# integration (and the remote host) when many containers are configured.
+# asyncio.Semaphore can safely be created at module level in Python 3.10+
+# (no running event loop required); Home Assistant requires Python 3.12+.
+_SSH_SEMAPHORE = asyncio.Semaphore(10)
+
 STATE_UNAVAILABLE = "unavailable"
 
 # Cache docker_create availability per host to avoid redundant SSH calls when
@@ -49,7 +57,10 @@ async def async_setup_entry(
 
 
 async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str) -> tuple[str, int]:
-    """Run a command via the ssh_command service. Returns (stdout, exit_status)."""
+    """Run a command via the ssh_command service. Returns (stdout, exit_status).
+
+    Concurrent executions are limited by the shared _SSH_SEMAPHORE.
+    """
     service_data: dict[str, Any] = {
         CONF_HOST: options[CONF_HOST],
         CONF_USERNAME: options[CONF_USERNAME],
@@ -64,13 +75,14 @@ async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str) -
     if options.get(CONF_KNOWN_HOSTS):
         service_data["known_hosts"] = options[CONF_KNOWN_HOSTS]
 
-    response = await hass.services.async_call(
-        SSH_COMMAND_DOMAIN,
-        SSH_COMMAND_SERVICE_EXECUTE,
-        service_data,
-        blocking=True,
-        return_response=True,
-    )
+    async with _SSH_SEMAPHORE:
+        response = await hass.services.async_call(
+            SSH_COMMAND_DOMAIN,
+            SSH_COMMAND_SERVICE_EXECUTE,
+            service_data,
+            blocking=True,
+            return_response=True,
+        )
     output = (response or {}).get(SSH_CONF_OUTPUT, "").strip()
     exit_status = (response or {}).get(SSH_CONF_EXIT_STATUS, 1)
     return output, exit_status
