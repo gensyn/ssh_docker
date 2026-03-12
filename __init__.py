@@ -340,7 +340,7 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         # pre-fill the form for the user.
         discovery_data: dict[str, Any] = {
             CONF_SERVICE: service_name,
-            CONF_NAME: service_name,
+            CONF_NAME: service_name.capitalize(),
             CONF_HOST: host,
             CONF_USERNAME: options.get(CONF_USERNAME, ""),
             CONF_DOCKER_COMMAND: options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND),
