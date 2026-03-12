@@ -1,6 +1,7 @@
 {
   "domain": "ssh_docker",
   "name": "SSH Docker",
+  "after_dependencies": ["http", "lovelace"],
   "codeowners": ["@gensyn"],
   "config_flow": true,
   "dependencies": ["ssh_command"],
