@@ -40,6 +40,9 @@ SERVICE_ENTITY_SCHEMA = vol.Schema(
 
 async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str) -> tuple[str, int]:
     """Execute a command via ssh_command service. Returns (stdout, exit_status)."""
+    _LOGGER.debug(
+        "Running SSH command on %s: %s", options.get(CONF_HOST, "<unknown>"), command
+    )
     service_data: dict[str, Any] = {
         CONF_HOST: options[CONF_HOST],
         CONF_USERNAME: options[CONF_USERNAME],
@@ -63,6 +66,9 @@ async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str) -
     )
     output = (response or {}).get(SSH_CONF_OUTPUT, "").strip()
     exit_status = (response or {}).get(SSH_CONF_EXIT_STATUS, 1)
+    _LOGGER.debug(
+        "SSH command on %s exited with status %d", options.get(CONF_HOST, "<unknown>"), exit_status
+    )
     return output, exit_status
 
 
@@ -71,6 +77,7 @@ def _get_entry_for_entity(hass: HomeAssistant, entity_id: str) -> ConfigEntry:
     reg = entity_registry.async_get(hass)
     entry_obj = reg.async_get(entity_id)  # pylint: disable=assignment-from-none
     if entry_obj is None:
+        _LOGGER.error("Entity %s not found in entity registry", entity_id)
         raise ServiceValidationError(
             f"Entity {entity_id} not found in registry",
             translation_domain=DOMAIN,
@@ -78,6 +85,11 @@ def _get_entry_for_entity(hass: HomeAssistant, entity_id: str) -> ConfigEntry:
         )
     config_entry = hass.config_entries.async_get_entry(entry_obj.config_entry_id)
     if config_entry is None:
+        _LOGGER.error(
+            "Config entry for entity %s (entry id: %s) not found",
+            entity_id,
+            entry_obj.config_entry_id,
+        )
         raise ServiceValidationError(
             f"Config entry for {entity_id} not found",
             translation_domain=DOMAIN,
@@ -88,12 +100,14 @@ def _get_entry_for_entity(hass: HomeAssistant, entity_id: str) -> ConfigEntry:
 
 async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
     """Set up the SSH Docker integration and register services."""
+    _LOGGER.debug("Setting up SSH Docker integration")
     panel = SshDockerPanelRegistration(hass)
     await panel.async_register()
 
     async def async_create(service_call: ServiceCall) -> None:
         """Create a docker container using the docker_create executable."""
         entity_id = service_call.data["entity_id"]
+        _LOGGER.debug("Service 'create' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         options = entry.options
         name = entry.data[CONF_NAME]
@@ -104,6 +118,11 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         )
         output, _ = await _ssh_run(hass, options, check_cmd)
         if output.strip() != "found":
+            _LOGGER.error(
+                "Service 'create' for container %s: %s not found on host",
+                name,
+                DOCKER_CREATE_EXECUTABLE,
+            )
             raise ServiceValidationError(
                 f"{DOCKER_CREATE_EXECUTABLE} not found on host",
                 translation_domain=DOMAIN,
@@ -117,15 +136,23 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         )
         _, exit_status = await _ssh_run(hass, options, create_cmd)
         if exit_status != 0:
+            _LOGGER.error(
+                "Service 'create': %s failed for container %s (exit status %d)",
+                DOCKER_CREATE_EXECUTABLE,
+                name,
+                exit_status,
+            )
             raise ServiceValidationError(
                 f"{DOCKER_CREATE_EXECUTABLE} failed for {name}",
                 translation_domain=DOMAIN,
                 translation_key="docker_create_failed",
             )
+        _LOGGER.info("Service 'create': successfully created container %s", name)
 
     async def async_restart(service_call: ServiceCall) -> None:
         """Restart a docker container."""
         entity_id = service_call.data["entity_id"]
+        _LOGGER.debug("Service 'restart' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         options = entry.options
         name = entry.data[CONF_NAME]
@@ -133,15 +160,20 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
 
         _, exit_status = await _ssh_run(hass, options, f"{docker_cmd} restart {name}")
         if exit_status != 0:
+            _LOGGER.error(
+                "Service 'restart' failed for container %s (exit status %d)", name, exit_status
+            )
             raise ServiceValidationError(
                 f"Failed to restart container {name}",
                 translation_domain=DOMAIN,
                 translation_key="docker_command_failed",
             )
+        _LOGGER.info("Service 'restart': successfully restarted container %s", name)
 
     async def async_stop(service_call: ServiceCall) -> None:
         """Stop a docker container."""
         entity_id = service_call.data["entity_id"]
+        _LOGGER.debug("Service 'stop' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         options = entry.options
         name = entry.data[CONF_NAME]
@@ -149,15 +181,20 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
 
         _, exit_status = await _ssh_run(hass, options, f"{docker_cmd} stop {name}")
         if exit_status != 0:
+            _LOGGER.error(
+                "Service 'stop' failed for container %s (exit status %d)", name, exit_status
+            )
             raise ServiceValidationError(
                 f"Failed to stop container {name}",
                 translation_domain=DOMAIN,
                 translation_key="docker_command_failed",
             )
+        _LOGGER.info("Service 'stop': successfully stopped container %s", name)
 
     async def async_remove(service_call: ServiceCall) -> None:
         """Stop and remove a docker container."""
         entity_id = service_call.data["entity_id"]
+        _LOGGER.debug("Service 'remove' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         options = entry.options
         name = entry.data[CONF_NAME]
@@ -167,22 +204,28 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
             hass, options, f"{docker_cmd} stop {name}; {docker_cmd} rm {name}"
         )
         if exit_status != 0:
+            _LOGGER.error(
+                "Service 'remove' failed for container %s (exit status %d)", name, exit_status
+            )
             raise ServiceValidationError(
                 f"Failed to remove container {name}",
                 translation_domain=DOMAIN,
                 translation_key="docker_command_failed",
             )
+        _LOGGER.info("Service 'remove': successfully removed container %s", name)
 
     hass.services.async_register(DOMAIN, SERVICE_CREATE, async_create, schema=SERVICE_ENTITY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_RESTART, async_restart, schema=SERVICE_ENTITY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_STOP, async_stop, schema=SERVICE_ENTITY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_REMOVE, async_remove, schema=SERVICE_ENTITY_SCHEMA)
 
+    _LOGGER.debug("SSH Docker integration setup complete")
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SSH Docker from a config entry."""
+    _LOGGER.debug("Setting up config entry for container %s", entry.data.get(CONF_NAME))
     await hass.config_entries.async_forward_entry_setups(entry, _PLATFORMS)
     hass.async_create_task(_discover_services(hass, entry))
     return True
@@ -190,13 +233,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    _LOGGER.debug("Unloading config entry for container %s", entry.data.get(CONF_NAME))
     return await hass.config_entries.async_unload_platforms(entry, _PLATFORMS)
 
 
 async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Discover additional docker services on the host and suggest them."""
     options = entry.options
+    host = options[CONF_HOST]
     docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
+    _LOGGER.debug("Starting docker service discovery on %s", host)
 
     discover_cmd = (
         f"if command -v {DOCKER_SERVICES_EXECUTABLE} >/dev/null 2>&1; then"
@@ -209,10 +255,17 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
     try:
         output, exit_status = await _ssh_run(hass, options, discover_cmd)
     except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
-        _LOGGER.debug("Service discovery failed: %s", err)
+        _LOGGER.warning("Service discovery on %s failed: %s", host, err)
         return
 
-    if exit_status != 0 or not output:
+    if exit_status != 0:
+        _LOGGER.warning(
+            "Service discovery on %s returned non-zero exit status %d", host, exit_status
+        )
+        return
+
+    if not output:
+        _LOGGER.debug("Service discovery on %s returned no output", host)
         return
 
     service_names: list[str] = []
@@ -220,16 +273,23 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         parsed = json.loads(output)
         if isinstance(parsed, list):
             service_names = [str(s) for s in parsed if s]
+        _LOGGER.debug(
+            "Service discovery on %s: parsed %d service(s) from JSON", host, len(service_names)
+        )
     except (json.JSONDecodeError, ValueError):
+        _LOGGER.debug(
+            "Service discovery on %s: JSON parse failed, falling back to line-by-line output",
+            host,
+        )
         service_names = [line.strip() for line in output.splitlines() if line.strip()]
 
-    host = options[CONF_HOST]
     configured_names = {
         e.data[CONF_NAME]
         for e in hass.config_entries.async_entries(DOMAIN)
         if e.options.get(CONF_HOST) == host
     }
 
+    new_count = 0
     for name in service_names:
         if name in configured_names:
             continue
@@ -241,3 +301,8 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
                 data={CONF_NAME: name, CONF_HOST: host},
             )
         )
+        new_count += 1
+
+    _LOGGER.debug(
+        "Service discovery on %s complete: %d new service(s) discovered", host, new_count
+    )

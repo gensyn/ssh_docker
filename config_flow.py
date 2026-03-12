@@ -45,13 +45,22 @@ class SshDockerConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             name = user_input[CONF_NAME]
+            _LOGGER.debug(
+                "Config flow user step: validating entry for container %s on %s",
+                name,
+                user_input.get(CONF_HOST, "<unknown>"),
+            )
             await self.async_set_unique_id(f"{user_input[CONF_HOST]}_{name}")
             self._abort_if_unique_id_configured()
 
             options, error_key = await validate_and_build_options(self.hass, user_input)
             if error_key:
+                _LOGGER.debug(
+                    "Config flow validation failed for container %s: %s", name, error_key
+                )
                 errors["base"] = error_key
             else:
+                _LOGGER.info("Config entry created for container %s on %s", name, user_input[CONF_HOST])
                 return self.async_create_entry(
                     title=name,
                     data={CONF_NAME: name},
@@ -70,6 +79,7 @@ class SshDockerConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle a discovered docker service."""
         name = discovery_info.get(CONF_NAME, "")
         host = discovery_info.get(CONF_HOST, "")
+        _LOGGER.debug("Discovery flow: container %s found on %s", name, host)
 
         await self.async_set_unique_id(f"{host}_{name}")
         self._abort_if_unique_id_configured()

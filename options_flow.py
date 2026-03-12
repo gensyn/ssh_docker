@@ -29,6 +29,10 @@ async def validate_and_build_options(
     has_key_file = bool(user_input.get(CONF_KEY_FILE))
 
     if not has_password and not has_key_file:
+        _LOGGER.debug(
+            "Validation failed for host %s: neither password nor key_file provided",
+            user_input.get(CONF_HOST, "<unknown>"),
+        )
         return {}, "password_or_key_file_required"
 
     docker_cmd = user_input.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
@@ -46,6 +50,11 @@ async def validate_and_build_options(
     if user_input.get(CONF_KNOWN_HOSTS):
         service_data["known_hosts"] = user_input[CONF_KNOWN_HOSTS]
 
+    _LOGGER.debug(
+        "Validating SSH connection to %s as %s",
+        user_input[CONF_HOST],
+        user_input[CONF_USERNAME],
+    )
     try:
         response = await hass.services.async_call(
             SSH_COMMAND_DOMAIN,
@@ -56,13 +65,29 @@ async def validate_and_build_options(
         )
         exit_status = response.get(SSH_CONF_EXIT_STATUS, 1) if response else 1
         if exit_status != 0:
+            _LOGGER.warning(
+                "SSH validation for host %s: docker command failed (exit status %d)",
+                user_input[CONF_HOST],
+                exit_status,
+            )
             return {}, "docker_command_failed"
     except ServiceValidationError as exc:
         translation_key = exc.translation_key if hasattr(exc, "translation_key") else "cannot_connect"
+        _LOGGER.warning(
+            "SSH validation for host %s raised ServiceValidationError: %s",
+            user_input[CONF_HOST],
+            exc,
+        )
         return {}, translation_key
-    except HomeAssistantError:
+    except HomeAssistantError as exc:
+        _LOGGER.warning(
+            "SSH validation for host %s raised HomeAssistantError: %s",
+            user_input[CONF_HOST],
+            exc,
+        )
         return {}, "cannot_connect"
 
+    _LOGGER.debug("SSH validation successful for host %s", user_input[CONF_HOST])
     options: dict[str, Any] = {
         CONF_HOST: user_input[CONF_HOST],
         CONF_USERNAME: user_input[CONF_USERNAME],
@@ -104,10 +129,16 @@ class SshDockerOptionsFlow(OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            _LOGGER.debug(
+                "Options flow: validating updated settings for %s",
+                user_input.get(CONF_HOST, "<unknown>"),
+            )
             options, error_key = await validate_and_build_options(self.hass, user_input)
             if error_key:
+                _LOGGER.debug("Options flow validation failed: %s", error_key)
                 errors["base"] = error_key
             else:
+                _LOGGER.info("Options updated for host %s", user_input.get(CONF_HOST))
                 return self.async_create_entry(data=options)
 
         current = self.config_entry.options

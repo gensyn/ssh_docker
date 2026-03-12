@@ -100,6 +100,7 @@ class DockerContainerSensor(SensorEntity):
         options = self.entry.options
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
         name = self._name
+        _LOGGER.debug("Updating sensor for container %s", name)
 
         info_cmd = (
             f"{docker_cmd} inspect {name}"
@@ -114,12 +115,20 @@ class DockerContainerSensor(SensorEntity):
             return
 
         if exit_status != 0 or not output:
+            _LOGGER.debug(
+                "Container %s not found or docker inspect returned no output (exit status %d)",
+                name,
+                exit_status,
+            )
             self._attr_native_value = STATE_UNAVAILABLE
             self._attr_extra_state_attributes = {}
             return
 
         parts = output.split(";", 3)
         if len(parts) < 4:
+            _LOGGER.warning(
+                "Unexpected docker inspect output format for container %s: %r", name, output
+            )
             self._attr_native_value = STATE_UNAVAILABLE
             self._attr_extra_state_attributes = {}
             return
@@ -134,9 +143,18 @@ class DockerContainerSensor(SensorEntity):
         try:
             new_image_id, _ = await _ssh_run(self.hass, options, pull_cmd)
             update_available = bool(new_image_id) and new_image_id != old_image_id.strip()
+            if update_available:
+                _LOGGER.info(
+                    "Update available for container %s: image %s has a newer version",
+                    name,
+                    image_name,
+                )
         except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
             _LOGGER.debug("Could not check for image updates for %s: %s", name, err)
 
+        _LOGGER.debug(
+            "Container %s state: %s, update_available: %s", name, container_state, update_available
+        )
         self._attr_native_value = container_state
         self._attr_extra_state_attributes = {
             CONF_CREATED: created,
