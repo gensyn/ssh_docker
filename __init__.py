@@ -294,11 +294,27 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         if name in configured_names:
             continue
         _LOGGER.debug("Discovered docker service: %s on %s", name, host)
+        # Build discovery data with full SSH options so the config flow can
+        # pre-fill the form for the user.
+        discovery_data: dict[str, Any] = {
+            CONF_NAME: name,
+            CONF_HOST: host,
+            CONF_USERNAME: options.get(CONF_USERNAME, ""),
+            CONF_DOCKER_COMMAND: options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND),
+            CONF_CHECK_KNOWN_HOSTS: options.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
+        }
+        if options.get(CONF_PASSWORD):
+            discovery_data[CONF_PASSWORD] = options[CONF_PASSWORD]
+        if options.get(CONF_KEY_FILE):
+            discovery_data[CONF_KEY_FILE] = options[CONF_KEY_FILE]
+        if options.get(CONF_KNOWN_HOSTS):
+            discovery_data[CONF_KNOWN_HOSTS] = options[CONF_KNOWN_HOSTS]
+
         hass.async_create_task(
             hass.config_entries.flow.async_init(
                 DOMAIN,
                 context={"source": SOURCE_DISCOVERY},
-                data={CONF_NAME: name, CONF_HOST: host},
+                data=discovery_data,
             )
         )
         new_count += 1
