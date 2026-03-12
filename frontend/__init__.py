@@ -14,9 +14,14 @@ from ..const import URL_BASE, SSH_DOCKER_CARDS  # noqa: TID252
 
 _LOGGER = logging.getLogger(__name__)
 
+PANEL_URL_PATH = "ssh_docker"
+PANEL_ELEMENT_NAME = "ssh-docker-panel"
+PANEL_SIDEBAR_TITLE = "SSH Docker"
+PANEL_SIDEBAR_ICON = "mdi:docker"
+
 
 class SshDockerPanelRegistration:
-    """Register the SSH Docker Lovelace panel resource."""
+    """Register the SSH Docker Lovelace panel resource and sidebar panel."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialise."""
@@ -31,11 +36,31 @@ class SshDockerPanelRegistration:
             self.resource_mode = None
 
     async def async_register(self) -> None:
-        """Register the SSH Docker panel resource."""
+        """Register the SSH Docker panel resource and sidebar panel."""
         from homeassistant.components.lovelace import MODE_STORAGE  # noqa: PLC0415
         await self._async_register_path()
         if self.resource_mode == MODE_STORAGE and self.lovelace:
             await self._async_register_modules()
+        await self._async_register_panel()
+
+    async def _async_register_panel(self) -> None:
+        """Register the SSH Docker panel in the Home Assistant sidebar."""
+        from homeassistant.components.panel_custom import async_register_panel  # noqa: PLC0415
+        module_url = f"{URL_BASE}/{SSH_DOCKER_CARDS[0]['filename']}"
+        try:
+            await async_register_panel(
+                self.hass,
+                component_name=PANEL_ELEMENT_NAME,
+                sidebar_title=PANEL_SIDEBAR_TITLE,
+                sidebar_icon=PANEL_SIDEBAR_ICON,
+                frontend_url_path=PANEL_URL_PATH,
+                config={},
+                require_admin=False,
+                module_url=module_url,
+            )
+            _LOGGER.debug("Registered SSH Docker sidebar panel at /%s", PANEL_URL_PATH)
+        except Exception as exc:  # pylint: disable=broad-except
+            _LOGGER.debug("Failed to register SSH Docker sidebar panel: %s", exc)
 
     async def _async_register_path(self) -> None:
         """Register resource path if not already registered."""

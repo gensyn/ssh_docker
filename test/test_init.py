@@ -15,6 +15,7 @@ from ssh_docker import async_setup  # noqa: E402
 from ssh_docker.const import (  # noqa: E402
     DOMAIN, SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE,
 )
+from ssh_docker.frontend import SshDockerPanelRegistration  # noqa: E402
 
 
 class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
@@ -69,6 +70,58 @@ class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
 
         mock_panel_cls.assert_called_once_with(mock_hass)
         mock_register.assert_awaited_once()
+
+
+class TestSshDockerPanelRegistration(unittest.IsolatedAsyncioTestCase):
+    """Test SshDockerPanelRegistration sidebar panel registration."""
+
+    def _make_hass(self) -> MagicMock:
+        """Build a minimal hass mock."""
+        hass = MagicMock()
+        hass.data = {}
+        hass.http.async_register_static_paths = AsyncMock()
+        return hass
+
+    async def test_async_register_panel_is_called(self):
+        """Test that async_register_panel is called with the correct arguments."""
+        hass = self._make_hass()
+        registration = SshDockerPanelRegistration(hass)
+
+        with patch(
+            "ssh_docker.frontend.SshDockerPanelRegistration._async_register_path",
+            new=AsyncMock(),
+        ), patch(
+            "homeassistant.components.panel_custom.async_register_panel",
+            new=AsyncMock(),
+        ) as mock_register_panel:
+            await registration._async_register_panel()
+
+        mock_register_panel.assert_awaited_once()
+        call_kwargs = mock_register_panel.call_args.kwargs
+        self.assertEqual(call_kwargs["component_name"], "ssh-docker-panel")
+        self.assertEqual(call_kwargs["sidebar_title"], "SSH Docker")
+        self.assertEqual(call_kwargs["sidebar_icon"], "mdi:docker")
+        self.assertEqual(call_kwargs["frontend_url_path"], "ssh_docker")
+        self.assertIn("module_url", call_kwargs)
+        self.assertIn("ssh-docker-panel.js", call_kwargs["module_url"])
+
+    async def test_async_register_panel_handles_duplicate(self):
+        """Test that duplicate panel registration raises no exception and logs the error."""
+        hass = self._make_hass()
+        registration = SshDockerPanelRegistration(hass)
+        error_msg = "Panel already registered"
+
+        with patch(
+            "homeassistant.components.panel_custom.async_register_panel",
+            new=AsyncMock(side_effect=Exception(error_msg)),
+        ), self.assertLogs("ssh_docker.frontend", level="DEBUG") as log_ctx:
+            # Should not raise
+            await registration._async_register_panel()
+
+        self.assertTrue(
+            any(error_msg in msg for msg in log_ctx.output),
+            "Expected error message in debug log",
+        )
 
 
 if __name__ == "__main__":

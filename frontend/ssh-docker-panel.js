@@ -1,4 +1,4 @@
-// SSH Docker Panel – custom Lovelace card that lists all docker containers grouped by host.
+// SSH Docker Panel – sidebar panel and Lovelace card that lists all docker containers grouped by host.
 class SshDockerPanel extends HTMLElement {
   constructor() {
     super();
@@ -69,7 +69,7 @@ class SshDockerPanel extends HTMLElement {
         }
         hostsHtml += `
           <div class="host-section">
-            <h3 class="host-title">🖥 ${host}</h3>
+            <h3 class="host-title">�� ${host}</h3>
             <table>
               <thead>
                 <tr>
@@ -88,39 +88,57 @@ class SshDockerPanel extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; }
-        ha-card { padding: 0; }
-        .card-header {
-          padding: 16px 16px 8px;
-          font-size: 1.3em;
+        :host {
+          display: block;
+          height: 100%;
+          background: var(--primary-background-color, #fafafa);
+          overflow-y: auto;
+        }
+        .panel-content {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 24px 16px;
+        }
+        .panel-header {
+          font-size: 1.5em;
           font-weight: bold;
           color: var(--primary-text-color);
+          margin: 0 0 24px;
           display: flex;
           align-items: center;
           gap: 8px;
         }
-        .card-content { padding: 0 16px 16px; }
-        .host-section { margin-bottom: 24px; }
+        .host-section {
+          background: var(--card-background-color, #fff);
+          border-radius: 8px;
+          box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0,0,0,.1));
+          margin-bottom: 24px;
+          overflow: hidden;
+        }
         .host-title {
-          margin: 12px 0 8px;
+          margin: 0;
+          padding: 14px 16px;
           font-size: 1em;
-          color: var(--secondary-text-color);
-          border-bottom: 1px solid var(--divider-color);
-          padding-bottom: 4px;
+          font-weight: 600;
+          color: var(--primary-text-color);
+          border-bottom: 1px solid var(--divider-color, #e0e0e0);
+          background: var(--secondary-background-color, #f5f5f5);
         }
         table { width: 100%; border-collapse: collapse; }
         th {
           text-align: left;
-          padding: 6px 8px;
+          padding: 10px 16px;
           font-size: 0.82em;
           color: var(--secondary-text-color);
           font-weight: 500;
+          border-bottom: 1px solid var(--divider-color, #e0e0e0);
         }
-        td { padding: 7px 8px; font-size: 0.9em; vertical-align: middle; }
-        tr:hover td { background: var(--secondary-background-color); }
+        td { padding: 10px 16px; font-size: 0.9em; vertical-align: middle; }
+        tr:not(:last-child) td { border-bottom: 1px solid var(--divider-color, #e0e0e0); }
+        tr:hover td { background: var(--secondary-background-color, #f5f5f5); }
         .badge {
           display: inline-block;
-          padding: 2px 10px;
+          padding: 3px 10px;
           border-radius: 12px;
           font-size: 0.78em;
           color: white;
@@ -132,7 +150,7 @@ class SshDockerPanel extends HTMLElement {
         .update-badge {
           background: #e67e22;
           color: white;
-          padding: 2px 8px;
+          padding: 3px 8px;
           border-radius: 10px;
           font-size: 0.78em;
           font-weight: 500;
@@ -140,17 +158,18 @@ class SshDockerPanel extends HTMLElement {
         .empty {
           color: var(--secondary-text-color);
           text-align: center;
-          padding: 32px 0;
+          padding: 48px 0;
           font-style: italic;
         }
       </style>
-      <ha-card>
-        <div class="card-header">🐳 Docker Services</div>
-        <div class="card-content">${hostsHtml}</div>
-      </ha-card>
+      <div class="panel-content">
+        <h1 class="panel-header">🐳 Docker Services</h1>
+        ${hostsHtml}
+      </div>
     `;
   }
 
+  // --- Lovelace card compatibility ---
   setConfig(config) {
     this.config = config || {};
   }
@@ -160,11 +179,7 @@ class SshDockerPanel extends HTMLElement {
   }
 
   getGridOptions() {
-    return {
-      rows: 3,
-      columns: 12,
-      min_rows: 2,
-    };
+    return { rows: 3, columns: 12, min_rows: 2 };
   }
 }
 
