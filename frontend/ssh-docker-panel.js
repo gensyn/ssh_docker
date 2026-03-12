@@ -90,7 +90,7 @@ class SshDockerPanel extends HTMLElement {
     const allContainers = this._getAllContainers();
     const filteredContainers = this._getFilteredContainers();
 
-    const states = ["running", "exited", "paused", "restarting", "dead"];
+    const states = ["running", "exited", "paused", "restarting", "dead", "unavailable"];
     const counts = { all: allContainers.length };
     for (const s of states) {
       counts[s] = allContainers.filter((c) => c.state === s).length;

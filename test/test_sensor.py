@@ -75,7 +75,7 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
             await sensor.async_update()
 
         self.assertEqual(sensor._attr_native_value, STATE_UNAVAILABLE)
-        self.assertEqual(sensor._attr_extra_state_attributes, {})
+        self.assertEqual(sensor._attr_extra_state_attributes, {"host": "192.168.1.100"})
 
     async def test_update_sets_unavailable_on_exception(self):
         """Test that an exception during SSH sets the state to unavailable."""

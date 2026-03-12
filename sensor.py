@@ -106,12 +106,13 @@ class DockerContainerSensor(SensorEntity):
             f"{docker_cmd} inspect {name}"
             f" --format '{{{{.State.Status}}}};{{{{.Created}}}};{{{{.Config.Image}}}};{{{{.Image}}}}'"
         )
+        host = options.get(CONF_HOST, "")
         try:
             output, exit_status = await _ssh_run(self.hass, options, info_cmd)
         except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
             _LOGGER.warning("Failed to inspect container %s: %s", name, err)
             self._attr_native_value = STATE_UNAVAILABLE
-            self._attr_extra_state_attributes = {}
+            self._attr_extra_state_attributes = {"host": host}
             return
 
         if exit_status != 0 or not output:
@@ -121,7 +122,7 @@ class DockerContainerSensor(SensorEntity):
                 exit_status,
             )
             self._attr_native_value = STATE_UNAVAILABLE
-            self._attr_extra_state_attributes = {}
+            self._attr_extra_state_attributes = {"host": host}
             return
 
         parts = output.split(";", 3)
@@ -130,7 +131,7 @@ class DockerContainerSensor(SensorEntity):
                 "Unexpected docker inspect output format for container %s: %r", name, output
             )
             self._attr_native_value = STATE_UNAVAILABLE
-            self._attr_extra_state_attributes = {}
+            self._attr_extra_state_attributes = {"host": host}
             return
 
         container_state, created, image_name, old_image_id = parts
