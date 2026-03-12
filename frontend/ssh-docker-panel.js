@@ -38,6 +38,9 @@ class SshDockerPanel extends HTMLElement {
   _getFilteredContainers() {
     const containers = this._getAllContainers();
     if (this._filter === "all") return containers;
+    if (this._filter === "update_available") {
+      return containers.filter((c) => c.attributes && c.attributes.update_available === true);
+    }
     return containers.filter((c) => c.state === this._filter);
   }
 
@@ -143,14 +146,19 @@ class SshDockerPanel extends HTMLElement {
     for (const s of states) {
       counts[s] = allContainers.filter((c) => c.state === s).length;
     }
+    counts["update_available"] = allContainers.filter(
+      (c) => c.attributes && c.attributes.update_available === true
+    ).length;
 
-    const filterButtons = ["all", ...states]
+    const filterKeys = ["all", ...states, "update_available"];
+    const filterLabels = { update_available: "⬆ updates" };
+    const filterButtons = filterKeys
       .filter((f) => f === "all" || counts[f] > 0)
       .map(
         (f) =>
           `<button class="filter-btn${this._filter === f ? " active" : ""}"
                    data-filter="${f}">
-            ${f === "all" ? "All" : f} (${counts[f]})
+            ${filterLabels[f] || (f === "all" ? "All" : f)} (${counts[f]})
            </button>`
       )
       .join("");
@@ -208,6 +216,17 @@ class SshDockerPanel extends HTMLElement {
         }
         .filter-btn:hover:not(.active) {
           background: rgba(3, 169, 244, 0.1);
+        }
+        .filter-btn[data-filter="update_available"] {
+          border-color: #e67e22;
+          color: #e67e22;
+        }
+        .filter-btn[data-filter="update_available"].active {
+          background: #e67e22;
+          color: white;
+        }
+        .filter-btn[data-filter="update_available"]:hover:not(.active) {
+          background: rgba(230, 126, 34, 0.1);
         }
         .host-section {
           margin-bottom: 24px;
