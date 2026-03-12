@@ -209,7 +209,14 @@ class SshDockerConfigFlow(ConfigFlow, domain=DOMAIN):
                             options=options,
                         )
 
-        schema = _build_user_schema(discovery) if discovery else STEP_USER_DATA_SCHEMA
+        if user_input is not None:
+            # Re-show the form with the values the user already entered so they
+            # don't have to type everything again after a validation error.
+            schema = _build_user_schema(user_input)
+        elif discovery:
+            schema = _build_user_schema(discovery)
+        else:
+            schema = STEP_USER_DATA_SCHEMA
         return self.async_show_form(
             step_id="user",
             data_schema=schema,
