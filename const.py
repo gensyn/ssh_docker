@@ -2,6 +2,7 @@
 
 DOMAIN = "ssh_docker"
 
+CONF_SERVICE = "service"
 CONF_KEY_FILE = "key_file"
 CONF_CHECK_KNOWN_HOSTS = "check_known_hosts"
 CONF_KNOWN_HOSTS = "known_hosts"

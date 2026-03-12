@@ -31,7 +31,7 @@ def _make_sensor(container_name="my_container", options=None):
         }
     entry = ConfigEntry(
         entry_id="test_id",
-        data={"name": container_name},
+        data={"name": container_name, "service": container_name},
         options=options,
     )
     mock_hass = MagicMock()

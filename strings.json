@@ -6,6 +6,7 @@
         "description": "Enter the details for the remote Docker container.",
         "data": {
           "name": "Name",
+          "service": "Service",
           "host": "Host",
           "username": "Username",
           "password": "Password",

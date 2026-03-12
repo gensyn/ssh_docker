@@ -16,7 +16,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     DOMAIN, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
-    CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE,
+    CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_SERVICE,
     SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS,
     SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE,
@@ -119,7 +119,7 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         _LOGGER.debug("Service 'create' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         options = entry.options
-        name = entry.data[CONF_NAME]
+        name = entry.data.get(CONF_SERVICE, entry.data[CONF_NAME])
         sensor = hass.data.get(DOMAIN, {}).get(entry.entry_id)
         if sensor:
             sensor.set_transitional_state("creating")
@@ -175,7 +175,7 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         _LOGGER.debug("Service 'restart' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         options = entry.options
-        name = entry.data[CONF_NAME]
+        name = entry.data.get(CONF_SERVICE, entry.data[CONF_NAME])
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
         sensor = hass.data.get(DOMAIN, {}).get(entry.entry_id)
         if sensor:
@@ -203,7 +203,7 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         _LOGGER.debug("Service 'stop' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         options = entry.options
-        name = entry.data[CONF_NAME]
+        name = entry.data.get(CONF_SERVICE, entry.data[CONF_NAME])
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
         sensor = hass.data.get(DOMAIN, {}).get(entry.entry_id)
         if sensor:
@@ -231,7 +231,7 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         _LOGGER.debug("Service 'remove' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         options = entry.options
-        name = entry.data[CONF_NAME]
+        name = entry.data.get(CONF_SERVICE, entry.data[CONF_NAME])
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
         sensor = hass.data.get(DOMAIN, {}).get(entry.entry_id)
         if sensor:
@@ -325,21 +325,22 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         )
         service_names = [line.strip() for line in output.splitlines() if line.strip()]
 
-    configured_names = {
-        e.data[CONF_NAME]
+    configured_services = {
+        e.data.get(CONF_SERVICE, e.data[CONF_NAME])
         for e in hass.config_entries.async_entries(DOMAIN)
         if e.options.get(CONF_HOST) == host
     }
 
     new_count = 0
-    for name in service_names:
-        if name in configured_names:
+    for service_name in service_names:
+        if service_name in configured_services:
             continue
-        _LOGGER.debug("Discovered docker service: %s on %s", name, host)
+        _LOGGER.debug("Discovered docker service: %s on %s", service_name, host)
         # Build discovery data with full SSH options so the config flow can
         # pre-fill the form for the user.
         discovery_data: dict[str, Any] = {
-            CONF_NAME: name,
+            CONF_SERVICE: service_name,
+            CONF_NAME: service_name,
             CONF_HOST: host,
             CONF_USERNAME: options.get(CONF_USERNAME, ""),
             CONF_DOCKER_COMMAND: options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND),

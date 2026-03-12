@@ -12,7 +12,7 @@ from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_NA
 from homeassistant.core import HomeAssistant, callback
 
 from .const import (
-    DOMAIN, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
+    DOMAIN, CONF_SERVICE, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS,
     SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS,
@@ -25,6 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME): str,
+        vol.Required(CONF_SERVICE): str,
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_USERNAME): str,
         vol.Optional(CONF_PASSWORD): str,
@@ -37,7 +38,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 
 async def _check_service_exists(
-        hass: HomeAssistant, options: dict[str, Any], name: str
+        hass: HomeAssistant, options: dict[str, Any], service: str
 ) -> str | None:
     """Check whether a service name is present on the remote host.
 
@@ -83,7 +84,7 @@ async def _check_service_exists(
     except Exception:  # pylint: disable=broad-except
         _LOGGER.debug(
             "Service existence check for %s on %s failed, skipping check",
-            name,
+            service,
             options.get(CONF_HOST, "<unknown>"),
         )
         return None
@@ -111,13 +112,13 @@ async def _check_service_exists(
         )
         return None
 
-    if name in service_names:
-        _LOGGER.debug("Service %s confirmed on %s", name, options.get(CONF_HOST, "<unknown>"))
+    if service in service_names:
+        _LOGGER.debug("Service %s confirmed on %s", service, options.get(CONF_HOST, "<unknown>"))
         return None
 
     _LOGGER.warning(
         "Service %s not found on %s. Available services: %s",
-        name,
+        service,
         options.get(CONF_HOST, "<unknown>"),
         service_names,
     )
@@ -129,6 +130,7 @@ def _build_user_schema(defaults: dict[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, "")): str,
+            vol.Required(CONF_SERVICE, default=defaults.get(CONF_SERVICE, "")): str,
             vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "")): str,
             vol.Required(CONF_USERNAME, default=defaults.get(CONF_USERNAME, "")): str,
             vol.Optional(CONF_PASSWORD, default=defaults.get(CONF_PASSWORD, "")): str,
@@ -160,38 +162,52 @@ class SshDockerConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             name = user_input[CONF_NAME]
+            service = user_input[CONF_SERVICE]
             _LOGGER.debug(
-                "Config flow user step: validating entry for container %s on %s",
+                "Config flow user step: validating entry for service %s (name: %s) on %s",
+                service,
                 name,
                 user_input.get(CONF_HOST, "<unknown>"),
             )
-            await self.async_set_unique_id(f"{user_input[CONF_HOST]}_{name}")
-            self._abort_if_unique_id_configured()
 
-            options, error_key = await validate_and_build_options(self.hass, user_input)
-            if error_key:
-                _LOGGER.debug(
-                    "Config flow validation failed for container %s: %s", name, error_key
-                )
-                errors["base"] = error_key
+            # name must be unique across all entries
+            existing_names = {
+                e.data[CONF_NAME]
+                for e in self.hass.config_entries.async_entries(DOMAIN)
+            }
+            if name in existing_names:
+                errors["base"] = "already_configured"
             else:
-                error_key = await _check_service_exists(self.hass, options, name)
+                # unique_id is based on host+service to prevent adding the same
+                # container on the same host twice
+                await self.async_set_unique_id(f"{user_input[CONF_HOST]}_{service}")
+                self._abort_if_unique_id_configured()
+
+                options, error_key = await validate_and_build_options(self.hass, user_input)
                 if error_key:
                     _LOGGER.debug(
-                        "Service existence check failed for container %s: %s", name, error_key
+                        "Config flow validation failed for service %s: %s", service, error_key
                     )
                     errors["base"] = error_key
                 else:
-                    _LOGGER.info(
-                        "Config entry created for container %s on %s",
-                        name,
-                        user_input[CONF_HOST],
-                    )
-                    return self.async_create_entry(
-                        title=name,
-                        data={CONF_NAME: name},
-                        options=options,
-                    )
+                    error_key = await _check_service_exists(self.hass, options, service)
+                    if error_key:
+                        _LOGGER.debug(
+                            "Service existence check failed for %s: %s", service, error_key
+                        )
+                        errors["base"] = error_key
+                    else:
+                        _LOGGER.info(
+                            "Config entry created for service %s (name: %s) on %s",
+                            service,
+                            name,
+                            user_input[CONF_HOST],
+                        )
+                        return self.async_create_entry(
+                            title=name,
+                            data={CONF_NAME: name, CONF_SERVICE: service},
+                            options=options,
+                        )
 
         schema = _build_user_schema(discovery) if discovery else STEP_USER_DATA_SCHEMA
         return self.async_show_form(
@@ -204,14 +220,14 @@ class SshDockerConfigFlow(ConfigFlow, domain=DOMAIN):
             self, discovery_info: dict[str, Any]
     ) -> ConfigFlowResult:
         """Handle a discovered docker service."""
-        name = discovery_info.get(CONF_NAME, "")
+        service = discovery_info.get(CONF_SERVICE, discovery_info.get(CONF_NAME, ""))
         host = discovery_info.get(CONF_HOST, "")
-        _LOGGER.debug("Discovery flow: container %s found on %s", name, host)
+        _LOGGER.debug("Discovery flow: service %s found on %s", service, host)
 
-        await self.async_set_unique_id(f"{host}_{name}")
+        await self.async_set_unique_id(f"{host}_{service}")
         self._abort_if_unique_id_configured()
 
-        self.context["title_placeholders"] = {CONF_NAME: name, CONF_HOST: host}
+        self.context["title_placeholders"] = {CONF_NAME: service, CONF_HOST: host}
         self._discovery_info = discovery_info  # pylint: disable=attribute-defined-outside-init
         return await self.async_step_user()
 

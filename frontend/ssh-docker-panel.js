@@ -1,4 +1,11 @@
 // SSH Docker Panel – sidebar panel that lists all docker containers grouped by host.
+
+/** Strip the " State" suffix that HA appends via the entity naming convention. */
+function _stripStateSuffix(name) {
+  const suffix = " State";
+  return name.endsWith(suffix) ? name.slice(0, -suffix.length) : name;
+}
+
 class SshDockerPanel extends HTMLElement {
   constructor() {
     super();
@@ -20,10 +27,10 @@ class SshDockerPanel extends HTMLElement {
     const containers = Object.values(this._hass.states).filter((entity) =>
       entity.entity_id.startsWith("sensor.ssh_docker_")
     );
-    // Always sort alphabetically by display name.
+    // Always sort alphabetically by display name (stripping the " State" suffix).
     return containers.sort((a, b) => {
-      const nameA = (a.attributes && a.attributes.friendly_name) || a.entity_id;
-      const nameB = (b.attributes && b.attributes.friendly_name) || b.entity_id;
+      const nameA = _stripStateSuffix((a.attributes && a.attributes.friendly_name) || a.entity_id);
+      const nameB = _stripStateSuffix((b.attributes && b.attributes.friendly_name) || b.entity_id);
       return nameA.localeCompare(nameB);
     });
   }
@@ -69,7 +76,7 @@ class SshDockerPanel extends HTMLElement {
 
   _renderContainerCard(entity) {
     const attrs = entity.attributes || {};
-    const name = attrs.friendly_name || entity.entity_id;
+    const name = _stripStateSuffix(attrs.friendly_name || entity.entity_id);
     const state = entity.state || "unavailable";
     const image = attrs.image || "-";
     const created = attrs.created ? attrs.created.slice(0, 10) : "-";

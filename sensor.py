@@ -17,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
 from .const import (
-    DOMAIN, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
+    DOMAIN, CONF_SERVICE, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_UPDATE_AVAILABLE,
     CONF_CREATED, CONF_IMAGE, SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS, DEFAULT_DOCKER_COMMAND,
@@ -83,6 +83,9 @@ class DockerContainerSensor(SensorEntity):
         self.entry = entry
         self.hass = hass
         self._name = entry.data[CONF_NAME]
+        # service is the container name used in docker commands; falls back to
+        # name for backwards compatibility with entries created before the split.
+        self._service = entry.data.get(CONF_SERVICE, self._name)
         self._attr_unique_id = f"{entry.entry_id}_state"
         self.entity_id = generate_entity_id(
             "sensor.ssh_docker_{}", slugify(self._name), hass=hass
@@ -100,18 +103,18 @@ class DockerContainerSensor(SensorEntity):
         """Fetch the latest state from the remote docker host."""
         options = self.entry.options
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
-        name = self._name
+        service = self._service
         host = options.get(CONF_HOST, "")
-        _LOGGER.debug("Updating sensor for container %s", name)
+        _LOGGER.debug("Updating sensor for container %s", service)
 
         info_cmd = (
-            f"{docker_cmd} inspect {name}"
+            f"{docker_cmd} inspect {service}"
             f" --format '{{{{.State.Status}}}};{{{{.Created}}}};{{{{.Config.Image}}}};{{{{.Image}}}}'"
         )
         try:
             output, exit_status = await _ssh_run(self.hass, options, info_cmd)
         except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
-            _LOGGER.warning("Failed to inspect container %s: %s", name, err)
+            _LOGGER.warning("Failed to inspect container %s: %s", service, err)
             self._attr_native_value = STATE_UNAVAILABLE
             self._attr_extra_state_attributes = {"host": host, "docker_create_available": False}
             return
@@ -119,7 +122,7 @@ class DockerContainerSensor(SensorEntity):
         if exit_status != 0 or not output:
             _LOGGER.debug(
                 "Container %s not found or docker inspect returned no output (exit status %d)",
-                name,
+                service,
                 exit_status,
             )
             docker_create_available = await self._check_docker_create_available(options)
@@ -133,7 +136,7 @@ class DockerContainerSensor(SensorEntity):
         parts = output.split(";", 3)
         if len(parts) < 4:
             _LOGGER.warning(
-                "Unexpected docker inspect output format for container %s: %r", name, output
+                "Unexpected docker inspect output format for container %s: %r", service, output
             )
             docker_create_available = await self._check_docker_create_available(options)
             self._attr_native_value = STATE_UNAVAILABLE
@@ -156,17 +159,17 @@ class DockerContainerSensor(SensorEntity):
             if update_available:
                 _LOGGER.info(
                     "Update available for container %s: image %s has a newer version",
-                    name,
+                    service,
                     image_name,
                 )
         except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
-            _LOGGER.debug("Could not check for image updates for %s: %s", name, err)
+            _LOGGER.debug("Could not check for image updates for %s: %s", service, err)
 
         # Check docker_create availability (for the panel Create button).
         docker_create_available = await self._check_docker_create_available(options)
 
         _LOGGER.debug(
-            "Container %s state: %s, update_available: %s", name, container_state, update_available
+            "Container %s state: %s, update_available: %s", service, container_state, update_available
         )
         self._attr_native_value = container_state
         self._attr_extra_state_attributes = {
@@ -178,7 +181,7 @@ class DockerContainerSensor(SensorEntity):
         }
 
         if update_available and options.get(CONF_AUTO_UPDATE, False):
-            await self._auto_recreate(options, name, docker_create_available)
+            await self._auto_recreate(options, service, docker_create_available)
 
     def set_transitional_state(self, state: str) -> None:
         """Set a transitional state and write it to HA immediately."""
