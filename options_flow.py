@@ -86,6 +86,13 @@ async def validate_and_build_options(
             exc,
         )
         return {}, "cannot_connect"
+    except Exception as exc:  # pylint: disable=broad-except
+        _LOGGER.warning(
+            "SSH validation for host %s raised an unexpected exception: %s",
+            user_input[CONF_HOST],
+            exc,
+        )
+        return {}, "cannot_connect"
 
     _LOGGER.debug("SSH validation successful for host %s", user_input[CONF_HOST])
     options: dict[str, Any] = {
