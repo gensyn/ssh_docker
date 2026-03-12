@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Dark background matching SSH Command icon style -->
+  <rect width="512" height="512" rx="96" fill="#1c2438"/>
+
+  <!-- Docker whale body (original design) centered at ~y=320 -->
+  <!-- Main body ellipse -->
+  <ellipse cx="256" cy="320" rx="185" ry="88" fill="#2496ed"/>
+
+  <!-- Tail fin (right side, forked) -->
+  <path d="M 420 290 C 460 265 478 270 472 310 C 478 350 460 355 420 330 Z" fill="#2496ed"/>
+  <!-- Tail notch -->
+  <path d="M 430 310 C 445 300 450 310 445 320 C 440 320 430 320 Z" fill="#1c2438"/>
+
+  <!-- Spout area (left) -->
+  <path d="M 100 295 C 75 285 65 300 80 320 C 90 310 100 305 Z" fill="#2496ed"/>
+
+  <!-- Water spout -->
+  <path d="M 115 278 Q 108 245 115 215 Q 122 245 130 278 Z" fill="#2496ed"/>
+  <ellipse cx="122" cy="210" rx="16" ry="7" fill="#2496ed" opacity="0.65"/>
+  <ellipse cx="108" cy="200" rx="11" ry="5" fill="#2496ed" opacity="0.4"/>
+  <ellipse cx="133" cy="203" rx="9" ry="4" fill="#2496ed" opacity="0.35"/>
+
+  <!-- Containers on whale's back (3 boxes, stacked neatly) -->
+  <!-- Container 1 -->
+  <rect x="165" y="216" width="52" height="38" rx="5" fill="white" opacity="0.92"/>
+  <line x1="165" y1="235" x2="217" y2="235" stroke="#2496ed" stroke-width="3"/>
+  <line x1="191" y1="216" x2="191" y2="254" stroke="#2496ed" stroke-width="2" opacity="0.5"/>
+
+  <!-- Container 2 -->
+  <rect x="226" y="210" width="52" height="38" rx="5" fill="white" opacity="0.92"/>
+  <line x1="226" y1="229" x2="278" y2="229" stroke="#2496ed" stroke-width="3"/>
+  <line x1="252" y1="210" x2="252" y2="248" stroke="#2496ed" stroke-width="2" opacity="0.5"/>
+
+  <!-- Container 3 -->
+  <rect x="287" y="215" width="52" height="38" rx="5" fill="white" opacity="0.92"/>
+  <line x1="287" y1="234" x2="339" y2="234" stroke="#2496ed" stroke-width="3"/>
+  <line x1="313" y1="215" x2="313" y2="253" stroke="#2496ed" stroke-width="2" opacity="0.5"/>
+
+  <!-- Eye -->
+  <circle cx="145" cy="310" r="11" fill="white"/>
+  <circle cx="147" cy="310" r="6" fill="#1c2438"/>
+
+  <!-- Bottom fin -->
+  <path d="M 230 400 Q 240 425 256 425 Q 272 425 282 400 Z" fill="#1a7cc2"/>
+
+  <!-- SSH terminal prompt in top-left area -->
+  <!-- Terminal-style prompt symbol indicating SSH connection -->
+  <text x="256" y="155" text-anchor="middle"
+        font-family="monospace, 'Courier New', Courier" font-size="60" font-weight="bold"
+        fill="#00e676" opacity="0.9">$ ssh</text>
+  <!-- Blinking cursor effect -->
+  <rect x="343" y="108" width="12" height="48" rx="2" fill="#00e676" opacity="0.8"/>
+</svg>
