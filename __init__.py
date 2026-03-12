@@ -101,6 +101,7 @@ def _get_entry_for_entity(hass: HomeAssistant, entity_id: str) -> ConfigEntry:
 async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
     """Set up the SSH Docker integration and register services."""
     _LOGGER.debug("Setting up SSH Docker integration")
+    hass.data.setdefault(DOMAIN, {})
     panel = SshDockerPanelRegistration(hass)
     await panel.async_register()
 
@@ -111,43 +112,50 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         entry = _get_entry_for_entity(hass, entity_id)
         options = entry.options
         name = entry.data[CONF_NAME]
+        sensor = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        if sensor:
+            sensor.set_transitional_state("creating")
 
         check_cmd = (
             f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1 && echo found"
             f" || (test -f /usr/bin/{DOCKER_CREATE_EXECUTABLE} && echo found || echo not_found)"
         )
-        output, _ = await _ssh_run(hass, options, check_cmd)
-        if output.strip() != "found":
-            _LOGGER.error(
-                "Service 'create' for container %s: %s not found on host",
-                name,
-                DOCKER_CREATE_EXECUTABLE,
-            )
-            raise ServiceValidationError(
-                f"{DOCKER_CREATE_EXECUTABLE} not found on host",
-                translation_domain=DOMAIN,
-                translation_key="docker_create_not_found",
-            )
+        try:
+            output, _ = await _ssh_run(hass, options, check_cmd)
+            if output.strip() != "found":
+                _LOGGER.error(
+                    "Service 'create' for container %s: %s not found on host",
+                    name,
+                    DOCKER_CREATE_EXECUTABLE,
+                )
+                raise ServiceValidationError(
+                    f"{DOCKER_CREATE_EXECUTABLE} not found on host",
+                    translation_domain=DOMAIN,
+                    translation_key="docker_create_not_found",
+                )
 
-        create_cmd = (
-            f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1"
-            f" && {DOCKER_CREATE_EXECUTABLE} {name}"
-            f" || /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}"
-        )
-        _, exit_status = await _ssh_run(hass, options, create_cmd)
-        if exit_status != 0:
-            _LOGGER.error(
-                "Service 'create': %s failed for container %s (exit status %d)",
-                DOCKER_CREATE_EXECUTABLE,
-                name,
-                exit_status,
+            create_cmd = (
+                f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1"
+                f" && {DOCKER_CREATE_EXECUTABLE} {name}"
+                f" || /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}"
             )
-            raise ServiceValidationError(
-                f"{DOCKER_CREATE_EXECUTABLE} failed for {name}",
-                translation_domain=DOMAIN,
-                translation_key="docker_create_failed",
-            )
-        _LOGGER.info("Service 'create': successfully created container %s", name)
+            _, exit_status = await _ssh_run(hass, options, create_cmd)
+            if exit_status != 0:
+                _LOGGER.error(
+                    "Service 'create': %s failed for container %s (exit status %d)",
+                    DOCKER_CREATE_EXECUTABLE,
+                    name,
+                    exit_status,
+                )
+                raise ServiceValidationError(
+                    f"{DOCKER_CREATE_EXECUTABLE} failed for {name}",
+                    translation_domain=DOMAIN,
+                    translation_key="docker_create_failed",
+                )
+            _LOGGER.info("Service 'create': successfully created container %s", name)
+        finally:
+            if sensor:
+                sensor.async_schedule_update_ha_state(force_refresh=True)
 
     async def async_restart(service_call: ServiceCall) -> None:
         """Restart a docker container."""
@@ -157,18 +165,25 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         options = entry.options
         name = entry.data[CONF_NAME]
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
+        sensor = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        if sensor:
+            sensor.set_transitional_state("restarting")
 
-        _, exit_status = await _ssh_run(hass, options, f"{docker_cmd} restart {name}")
-        if exit_status != 0:
-            _LOGGER.error(
-                "Service 'restart' failed for container %s (exit status %d)", name, exit_status
-            )
-            raise ServiceValidationError(
-                f"Failed to restart container {name}",
-                translation_domain=DOMAIN,
-                translation_key="docker_command_failed",
-            )
-        _LOGGER.info("Service 'restart': successfully restarted container %s", name)
+        try:
+            _, exit_status = await _ssh_run(hass, options, f"{docker_cmd} restart {name}")
+            if exit_status != 0:
+                _LOGGER.error(
+                    "Service 'restart' failed for container %s (exit status %d)", name, exit_status
+                )
+                raise ServiceValidationError(
+                    f"Failed to restart container {name}",
+                    translation_domain=DOMAIN,
+                    translation_key="docker_command_failed",
+                )
+            _LOGGER.info("Service 'restart': successfully restarted container %s", name)
+        finally:
+            if sensor:
+                sensor.async_schedule_update_ha_state(force_refresh=True)
 
     async def async_stop(service_call: ServiceCall) -> None:
         """Stop a docker container."""
@@ -178,18 +193,25 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         options = entry.options
         name = entry.data[CONF_NAME]
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
+        sensor = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        if sensor:
+            sensor.set_transitional_state("stopping")
 
-        _, exit_status = await _ssh_run(hass, options, f"{docker_cmd} stop {name}")
-        if exit_status != 0:
-            _LOGGER.error(
-                "Service 'stop' failed for container %s (exit status %d)", name, exit_status
-            )
-            raise ServiceValidationError(
-                f"Failed to stop container {name}",
-                translation_domain=DOMAIN,
-                translation_key="docker_command_failed",
-            )
-        _LOGGER.info("Service 'stop': successfully stopped container %s", name)
+        try:
+            _, exit_status = await _ssh_run(hass, options, f"{docker_cmd} stop {name}")
+            if exit_status != 0:
+                _LOGGER.error(
+                    "Service 'stop' failed for container %s (exit status %d)", name, exit_status
+                )
+                raise ServiceValidationError(
+                    f"Failed to stop container {name}",
+                    translation_domain=DOMAIN,
+                    translation_key="docker_command_failed",
+                )
+            _LOGGER.info("Service 'stop': successfully stopped container %s", name)
+        finally:
+            if sensor:
+                sensor.async_schedule_update_ha_state(force_refresh=True)
 
     async def async_remove(service_call: ServiceCall) -> None:
         """Stop and remove a docker container."""
@@ -199,20 +221,27 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         options = entry.options
         name = entry.data[CONF_NAME]
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
+        sensor = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        if sensor:
+            sensor.set_transitional_state("removing")
 
-        _, exit_status = await _ssh_run(
-            hass, options, f"{docker_cmd} stop {name}; {docker_cmd} rm {name}"
-        )
-        if exit_status != 0:
-            _LOGGER.error(
-                "Service 'remove' failed for container %s (exit status %d)", name, exit_status
+        try:
+            _, exit_status = await _ssh_run(
+                hass, options, f"{docker_cmd} stop {name}; {docker_cmd} rm {name}"
             )
-            raise ServiceValidationError(
-                f"Failed to remove container {name}",
-                translation_domain=DOMAIN,
-                translation_key="docker_command_failed",
-            )
-        _LOGGER.info("Service 'remove': successfully removed container %s", name)
+            if exit_status != 0:
+                _LOGGER.error(
+                    "Service 'remove' failed for container %s (exit status %d)", name, exit_status
+                )
+                raise ServiceValidationError(
+                    f"Failed to remove container {name}",
+                    translation_domain=DOMAIN,
+                    translation_key="docker_command_failed",
+                )
+            _LOGGER.info("Service 'remove': successfully removed container %s", name)
+        finally:
+            if sensor:
+                sensor.async_schedule_update_ha_state(force_refresh=True)
 
     hass.services.async_register(DOMAIN, SERVICE_CREATE, async_create, schema=SERVICE_ENTITY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_RESTART, async_restart, schema=SERVICE_ENTITY_SCHEMA)
@@ -234,6 +263,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading config entry for container %s", entry.data.get(CONF_NAME))
+    hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
     return await hass.config_entries.async_unload_platforms(entry, _PLATFORMS)
 
 

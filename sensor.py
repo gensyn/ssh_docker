@@ -21,7 +21,7 @@ from .const import (
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_UPDATE_AVAILABLE,
     CONF_CREATED, CONF_IMAGE, SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS, DEFAULT_DOCKER_COMMAND,
-    DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
+    DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT, DOCKER_CREATE_EXECUTABLE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up SSH Docker sensor platform from a config entry."""
     sensor = DockerContainerSensor(entry, hass)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = sensor
     async_add_entities([sensor], update_before_add=True)
 
 
@@ -100,19 +101,19 @@ class DockerContainerSensor(SensorEntity):
         options = self.entry.options
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
         name = self._name
+        host = options.get(CONF_HOST, "")
         _LOGGER.debug("Updating sensor for container %s", name)
 
         info_cmd = (
             f"{docker_cmd} inspect {name}"
             f" --format '{{{{.State.Status}}}};{{{{.Created}}}};{{{{.Config.Image}}}};{{{{.Image}}}}'"
         )
-        host = options.get(CONF_HOST, "")
         try:
             output, exit_status = await _ssh_run(self.hass, options, info_cmd)
         except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
             _LOGGER.warning("Failed to inspect container %s: %s", name, err)
             self._attr_native_value = STATE_UNAVAILABLE
-            self._attr_extra_state_attributes = {"host": host}
+            self._attr_extra_state_attributes = {"host": host, "docker_create_available": False}
             return
 
         if exit_status != 0 or not output:
@@ -121,8 +122,12 @@ class DockerContainerSensor(SensorEntity):
                 name,
                 exit_status,
             )
+            docker_create_available = await self._check_docker_create_available(options)
             self._attr_native_value = STATE_UNAVAILABLE
-            self._attr_extra_state_attributes = {"host": host}
+            self._attr_extra_state_attributes = {
+                "host": host,
+                "docker_create_available": docker_create_available,
+            }
             return
 
         parts = output.split(";", 3)
@@ -130,8 +135,12 @@ class DockerContainerSensor(SensorEntity):
             _LOGGER.warning(
                 "Unexpected docker inspect output format for container %s: %r", name, output
             )
+            docker_create_available = await self._check_docker_create_available(options)
             self._attr_native_value = STATE_UNAVAILABLE
-            self._attr_extra_state_attributes = {"host": host}
+            self._attr_extra_state_attributes = {
+                "host": host,
+                "docker_create_available": docker_create_available,
+            }
             return
 
         container_state, created, image_name, old_image_id = parts
@@ -153,6 +162,9 @@ class DockerContainerSensor(SensorEntity):
         except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
             _LOGGER.debug("Could not check for image updates for %s: %s", name, err)
 
+        # Check docker_create availability (for the panel Create button).
+        docker_create_available = await self._check_docker_create_available(options)
+
         _LOGGER.debug(
             "Container %s state: %s, update_available: %s", name, container_state, update_available
         )
@@ -161,32 +173,47 @@ class DockerContainerSensor(SensorEntity):
             CONF_CREATED: created,
             CONF_IMAGE: image_name,
             CONF_UPDATE_AVAILABLE: update_available,
-            "host": options.get(CONF_HOST, ""),
+            "host": host,
+            "docker_create_available": docker_create_available,
         }
 
         if update_available and options.get(CONF_AUTO_UPDATE, False):
-            await self._auto_recreate(options, name)
+            await self._auto_recreate(options, name, docker_create_available)
 
-    async def _auto_recreate(
-            self, options: dict[str, Any], name: str
-    ) -> None:
-        """Recreate the container using docker_create if available."""
+    def set_transitional_state(self, state: str) -> None:
+        """Set a transitional state and write it to HA immediately."""
+        _LOGGER.debug("Container %s entering transitional state: %s", self._name, state)
+        self._attr_native_value = state
+        self.async_write_ha_state()
+
+    async def _check_docker_create_available(self, options: dict[str, Any]) -> bool:
+        """Return True if the docker_create executable is present on the remote host."""
         check_cmd = (
-            "command -v docker_create >/dev/null 2>&1 && echo found"
-            " || (test -f /usr/bin/docker_create && echo found || echo not_found)"
+            f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1 && echo found"
+            f" || (test -f /usr/bin/{DOCKER_CREATE_EXECUTABLE} && echo found || echo not_found)"
         )
         try:
             output, _ = await _ssh_run(self.hass, options, check_cmd)
-            if output.strip() != "found":
-                _LOGGER.warning(
-                    "Auto-update: docker_create not found on host for container %s", name
-                )
-                return
-            create_cmd = (
-                "command -v docker_create >/dev/null 2>&1"
-                f" && docker_create {name}"
-                f" || /usr/bin/docker_create {name}"
+            return output.strip() == "found"
+        except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
+            _LOGGER.debug("Could not check for docker_create on host: %s", err)
+            return False
+
+    async def _auto_recreate(
+            self, options: dict[str, Any], name: str, docker_create_available: bool = False
+    ) -> None:
+        """Recreate the container using docker_create if available."""
+        if not docker_create_available:
+            _LOGGER.warning(
+                "Auto-update: docker_create not found on host for container %s", name
             )
+            return
+        create_cmd = (
+            f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1"
+            f" && {DOCKER_CREATE_EXECUTABLE} {name}"
+            f" || /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}"
+        )
+        try:
             _, exit_status = await _ssh_run(self.hass, options, create_cmd)
             if exit_status != 0:
                 _LOGGER.warning("Auto-update: docker_create failed for %s", name)
