@@ -71,8 +71,11 @@ async def _ssh_run(
     )
     output = (response or {}).get(SSH_CONF_OUTPUT, "").strip()
     exit_status = (response or {}).get(SSH_CONF_EXIT_STATUS, 1)
+    # asyncssh returns None for signal-based terminations; normalize to -1
+    if exit_status is None:
+        exit_status = -1
     _LOGGER.debug(
-        "SSH command on %s exited with status %d", options.get(CONF_HOST, "<unknown>"), exit_status
+        "SSH command on %s exited with status %s", options.get(CONF_HOST, "<unknown>"), exit_status
     )
     return output, exit_status
 
@@ -149,18 +152,19 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
                 hass, options, create_cmd, timeout=DOCKER_CREATE_TIMEOUT
             )
             if exit_status != 0:
-                _LOGGER.error(
-                    "Service 'create': %s failed for container %s (exit status %d)",
+                # The docker_create script may exit non-zero for recoverable reasons
+                # (e.g. cleanup commands that fail when the container does not yet exist)
+                # while still successfully creating the container.  Log a warning and let
+                # the follow-up sensor refresh reveal the real container state.
+                _LOGGER.warning(
+                    "Service 'create': %s exited with status %s for container %s; "
+                    "the container may still have been created — check the sensor state",
                     DOCKER_CREATE_EXECUTABLE,
-                    name,
                     exit_status,
+                    name,
                 )
-                raise ServiceValidationError(
-                    f"{DOCKER_CREATE_EXECUTABLE} failed for {name}",
-                    translation_domain=DOMAIN,
-                    translation_key="docker_create_failed",
-                )
-            _LOGGER.info("Service 'create': successfully created container %s", name)
+            else:
+                _LOGGER.info("Service 'create': successfully created container %s", name)
         finally:
             if sensor:
                 sensor.async_schedule_update_ha_state(force_refresh=True)
