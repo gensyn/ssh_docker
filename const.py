@@ -36,8 +36,15 @@ DOCKER_CREATE_EXECUTABLE = "docker_create"
 URL_BASE = "/ssh_docker"
 SSH_DOCKER_CARDS = [
     {
-        "name": "SSH Docker Panel",
-        "filename": "ssh-docker-panel.js",
-        "version": "1.1.0",
+        "name": "SSH Docker Card",
+        "filename": "ssh-docker-card.js",
+        "version": "1.0.0",
     }
 ]
+SSH_DOCKER_PANEL = {
+    "webcomponent_name": "ssh-docker-panel",
+    "frontend_url_path": "ssh-docker",
+    "filename": "ssh-docker-panel.js",
+    "sidebar_title": "SSH Docker",
+    "sidebar_icon": "mdi:docker",
+}

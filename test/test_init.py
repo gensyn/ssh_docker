@@ -91,36 +91,36 @@ class TestSshDockerPanelRegistration(unittest.IsolatedAsyncioTestCase):
             "ssh_docker.frontend.SshDockerPanelRegistration._async_register_path",
             new=AsyncMock(),
         ), patch(
-            "homeassistant.components.panel_custom.async_register_panel",
+            "ssh_docker.frontend.async_register_panel",
             new=AsyncMock(),
         ) as mock_register_panel:
             await registration._async_register_panel()
 
         mock_register_panel.assert_awaited_once()
         call_kwargs = mock_register_panel.call_args.kwargs
-        self.assertEqual(call_kwargs["component_name"], "ssh-docker-panel")
+        self.assertEqual(call_kwargs["webcomponent_name"], "ssh-docker-panel")
         self.assertEqual(call_kwargs["sidebar_title"], "SSH Docker")
         self.assertEqual(call_kwargs["sidebar_icon"], "mdi:docker")
-        self.assertEqual(call_kwargs["frontend_url_path"], "ssh_docker")
+        self.assertEqual(call_kwargs["frontend_url_path"], "ssh-docker")
         self.assertIn("module_url", call_kwargs)
         self.assertIn("ssh-docker-panel.js", call_kwargs["module_url"])
 
     async def test_async_register_panel_handles_duplicate(self):
-        """Test that duplicate panel registration raises no exception and logs the error."""
+        """Test that duplicate panel registration (HomeAssistantError) raises no exception."""
+        from homeassistant.exceptions import HomeAssistantError  # noqa: PLC0415
         hass = self._make_hass()
         registration = SshDockerPanelRegistration(hass)
-        error_msg = "Panel already registered"
 
         with patch(
-            "homeassistant.components.panel_custom.async_register_panel",
-            new=AsyncMock(side_effect=Exception(error_msg)),
+            "ssh_docker.frontend.async_register_panel",
+            new=AsyncMock(side_effect=HomeAssistantError("Panel already registered")),
         ), self.assertLogs("ssh_docker.frontend", level="DEBUG") as log_ctx:
             # Should not raise
             await registration._async_register_panel()
 
         self.assertTrue(
-            any(error_msg in msg for msg in log_ctx.output),
-            "Expected error message in debug log",
+            any("already registered" in msg for msg in log_ctx.output),
+            "Expected 'already registered' in debug log",
         )
 
 

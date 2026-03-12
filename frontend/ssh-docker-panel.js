@@ -1,9 +1,9 @@
-// SSH Docker Panel – sidebar panel and Lovelace card that lists all docker containers grouped by host.
+// SSH Docker Panel – sidebar panel that lists all docker containers grouped by host.
 class SshDockerPanel extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._hass = null;
+    this._filter = "all";
   }
 
   set hass(hass) {
@@ -11,17 +11,35 @@ class SshDockerPanel extends HTMLElement {
     this._render();
   }
 
-  _getSshDockerEntities() {
+  set panel(panel) {
+    this._panel = panel;
+  }
+
+  _getAllContainers() {
     if (!this._hass) return [];
-    return Object.values(this._hass.states).filter(
-      (entity) => entity.entity_id.startsWith("sensor.ssh_docker_")
+    return Object.values(this._hass.states).filter((entity) =>
+      entity.entity_id.startsWith("sensor.ssh_docker_")
     );
   }
 
-  _groupByHost(entities) {
+  _getFilteredContainers() {
+    const containers = this._getAllContainers();
+    if (this._filter === "all") return containers;
+    return containers.filter((c) => c.state === this._filter);
+  }
+
+  _setFilter(filter) {
+    this._filter = filter;
+    this._render();
+  }
+
+  _groupByHost(containers) {
     const groups = {};
-    for (const entity of entities) {
-      const host = (entity.attributes && entity.attributes.host) ? entity.attributes.host : "Unknown Host";
+    for (const entity of containers) {
+      const host =
+        entity.attributes && entity.attributes.host
+          ? entity.attributes.host
+          : "Unknown Host";
       if (!groups[host]) groups[host] = [];
       groups[host].push(entity);
     }
@@ -39,50 +57,72 @@ class SshDockerPanel extends HTMLElement {
     }
   }
 
+  _renderContainerCard(entity) {
+    const attrs = entity.attributes || {};
+    const name = attrs.friendly_name || entity.entity_id;
+    const state = entity.state || "unavailable";
+    const image = attrs.image || "-";
+    const created = attrs.created ? attrs.created.slice(0, 10) : "-";
+    const updateBadge = attrs.update_available
+      ? `<span class="update-badge">⬆ Update available</span>`
+      : "";
+
+    return `
+      <div class="container-card">
+        <div class="container-card-header" style="background:${this._stateColor(state)}">
+          <span class="container-name">${name}</span>
+          <span class="state-badge">${state}</span>
+        </div>
+        <div class="container-card-content">
+          <table>
+            <tr><td>Image</td><td class="image-cell">${image}</td></tr>
+            <tr><td>Created</td><td>${created}</td></tr>
+            ${attrs.update_available ? `<tr><td colspan="2">${updateBadge}</td></tr>` : ""}
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
   _render() {
-    const entities = this._getSshDockerEntities();
-    const groups = this._groupByHost(entities);
+    if (!this._hass) return;
+
+    const allContainers = this._getAllContainers();
+    const filteredContainers = this._getFilteredContainers();
+
+    const states = ["running", "exited", "paused", "restarting", "dead"];
+    const counts = { all: allContainers.length };
+    for (const s of states) {
+      counts[s] = allContainers.filter((c) => c.state === s).length;
+    }
+
+    const filterButtons = ["all", ...states]
+      .filter((f) => f === "all" || counts[f] > 0)
+      .map(
+        (f) =>
+          `<button class="filter-btn${this._filter === f ? " active" : ""}"
+                   data-filter="${f}">
+            ${f === "all" ? "All" : f} (${counts[f]})
+           </button>`
+      )
+      .join("");
+
+    const groups = this._groupByHost(filteredContainers);
     let hostsHtml = "";
 
     if (Object.keys(groups).length === 0) {
-      hostsHtml = `<p class="empty">No Docker containers configured yet.</p>`;
+      hostsHtml = `<p class="no-containers">No Docker containers found.</p>`;
     } else {
-      for (const [host, hostEntities] of Object.entries(groups)) {
-        let rows = "";
-        for (const entity of hostEntities) {
-          const attrs = entity.attributes || {};
-          const name = attrs.friendly_name || entity.entity_id;
-          const state = entity.state || "unavailable";
-          const image = attrs.image || "-";
-          const created = attrs.created ? attrs.created.slice(0, 10) : "-";
-          const updateBadge = attrs.update_available
-            ? `<span class="update-badge">⬆ Update available</span>`
-            : "";
-          rows += `
-            <tr>
-              <td class="name">${name}</td>
-              <td><span class="badge" style="background:${this._stateColor(state)}">${state}</span></td>
-              <td class="image">${image}</td>
-              <td>${created}</td>
-              <td>${updateBadge}</td>
-            </tr>`;
-        }
+      for (const [host, hostContainers] of Object.entries(groups)) {
+        const cards = hostContainers
+          .map((c) => this._renderContainerCard(c))
+          .join("");
         hostsHtml += `
           <div class="host-section">
-            <h3 class="host-title">�� ${host}</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Container</th>
-                  <th>State</th>
-                  <th>Image</th>
-                  <th>Created</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>`;
+            <h2 class="host-title">🖥 ${host}</h2>
+            <div class="container-grid">${cards}</div>
+          </div>
+        `;
       }
     }
 
@@ -90,96 +130,113 @@ class SshDockerPanel extends HTMLElement {
       <style>
         :host {
           display: block;
-          height: 100%;
-          background: var(--primary-background-color, #fafafa);
-          overflow-y: auto;
+          padding: 16px;
         }
-        .panel-content {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 24px 16px;
+        h1 {
+          margin: 0 0 16px 0;
+          font-size: 1.5rem;
+          color: var(--primary-text-color, #212121);
         }
-        .panel-header {
-          font-size: 1.5em;
-          font-weight: bold;
-          color: var(--primary-text-color);
-          margin: 0 0 24px;
+        .filters {
           display: flex;
-          align-items: center;
+          flex-wrap: wrap;
           gap: 8px;
+          margin-bottom: 16px;
+        }
+        .filter-btn {
+          padding: 6px 14px;
+          border: 2px solid var(--primary-color, #03a9f4);
+          background: transparent;
+          color: var(--primary-color, #03a9f4);
+          border-radius: 20px;
+          cursor: pointer;
+          font-size: 0.875rem;
+          font-family: inherit;
+          transition: background 0.2s, color 0.2s;
+        }
+        .filter-btn.active {
+          background: var(--primary-color, #03a9f4);
+          color: var(--text-primary-color, white);
+        }
+        .filter-btn:hover:not(.active) {
+          background: rgba(3, 169, 244, 0.1);
         }
         .host-section {
-          background: var(--card-background-color, #fff);
-          border-radius: 8px;
-          box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0,0,0,.1));
           margin-bottom: 24px;
-          overflow: hidden;
         }
         .host-title {
-          margin: 0;
-          padding: 14px 16px;
-          font-size: 1em;
+          margin: 0 0 12px 0;
+          font-size: 1.1rem;
+          color: var(--secondary-text-color, #727272);
+          border-bottom: 1px solid var(--divider-color, #e0e0e0);
+          padding-bottom: 6px;
+        }
+        .container-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: 16px;
+        }
+        .container-card {
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: var(--ha-card-box-shadow, 0 2px 6px rgba(0,0,0,0.2));
+          background: var(--card-background-color, white);
+        }
+        .container-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          color: white;
+        }
+        .container-name {
+          font-size: 1rem;
           font-weight: 600;
-          color: var(--primary-text-color);
-          border-bottom: 1px solid var(--divider-color, #e0e0e0);
-          background: var(--secondary-background-color, #f5f5f5);
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          margin-right: 8px;
         }
-        table { width: 100%; border-collapse: collapse; }
-        th {
-          text-align: left;
-          padding: 10px 16px;
-          font-size: 0.82em;
-          color: var(--secondary-text-color);
-          font-weight: 500;
-          border-bottom: 1px solid var(--divider-color, #e0e0e0);
-        }
-        td { padding: 10px 16px; font-size: 0.9em; vertical-align: middle; }
-        tr:not(:last-child) td { border-bottom: 1px solid var(--divider-color, #e0e0e0); }
-        tr:hover td { background: var(--secondary-background-color, #f5f5f5); }
-        .badge {
-          display: inline-block;
-          padding: 3px 10px;
+        .state-badge {
+          background: rgba(255,255,255,0.3);
+          padding: 2px 10px;
           border-radius: 12px;
           font-size: 0.78em;
-          color: white;
-          font-weight: 500;
+          flex-shrink: 0;
           text-transform: capitalize;
         }
-        .name { font-weight: 500; }
-        .image { font-family: monospace; font-size: 0.8em; color: var(--secondary-text-color); }
+        .container-card-content {
+          padding: 8px 16px 12px;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 4px 0; font-size: 0.875rem; color: var(--primary-text-color, #212121); }
+        td:last-child {
+          text-align: right;
+          color: var(--secondary-text-color, #727272);
+        }
+        .image-cell { font-family: monospace; font-size: 0.8em; }
         .update-badge {
           background: #e67e22;
           color: white;
-          padding: 3px 8px;
+          padding: 2px 8px;
           border-radius: 10px;
           font-size: 0.78em;
           font-weight: 500;
         }
-        .empty {
-          color: var(--secondary-text-color);
-          text-align: center;
-          padding: 48px 0;
+        .no-containers {
+          color: var(--secondary-text-color, #727272);
           font-style: italic;
         }
       </style>
-      <div class="panel-content">
-        <h1 class="panel-header">🐳 Docker Services</h1>
-        ${hostsHtml}
-      </div>
+      <h1>🐳 SSH Docker</h1>
+      <div class="filters">${filterButtons}</div>
+      ${hostsHtml}
     `;
-  }
 
-  // --- Lovelace card compatibility ---
-  setConfig(config) {
-    this.config = config || {};
-  }
-
-  getCardSize() {
-    return 3;
-  }
-
-  getGridOptions() {
-    return { rows: 3, columns: 12, min_rows: 2 };
+    this.shadowRoot.querySelectorAll(".filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => this._setFilter(btn.dataset.filter));
+    });
   }
 }
 

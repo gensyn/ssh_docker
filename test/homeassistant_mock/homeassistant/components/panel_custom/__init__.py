@@ -11,7 +11,8 @@ if TYPE_CHECKING:
 async def async_register_panel(
     hass: "HomeAssistant",
     *,
-    component_name: str,
+    webcomponent_name: str | None = None,
+    component_name: str | None = None,
     sidebar_title: str | None = None,
     sidebar_icon: str | None = None,
     frontend_url_path: str | None = None,
