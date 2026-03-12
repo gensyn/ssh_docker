@@ -321,7 +321,7 @@ class SshDockerPanel extends HTMLElement {
           font-style: italic;
         }
       </style>
-      <h1>🐳 SSH Docker</h1>
+      <h1>SSH Docker</h1>
       <div class="filters">${filterButtons}</div>
       ${hostsHtml}
     `;
