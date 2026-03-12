@@ -101,7 +101,9 @@ class SshDockerPanel extends HTMLElement {
     // Conditional button visibility per the requirements.
     // Create/Recreate: only if docker_create is available; label changes based on container state.
     const showCreate   = attrs.docker_create_available === true;
-    const createLabel  = state !== "unavailable" ? "✚ Recreate" : "✚ Create";
+    const createLabel  = state !== "unavailable"
+      ? (attrs.update_available && state === "running" ? "⬆ Update" : "✚ Recreate")
+      : "✚ Create";
     // Start/Restart: show for running (Restart) or stopped states (Start).
     const stoppedStates = ["exited", "created", "dead", "paused"];
     const showRestart  = state === "running";
