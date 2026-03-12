@@ -1,5 +1,7 @@
 """Constants for the SSH Docker integration."""
 
+import asyncio
+
 DOMAIN = "ssh_docker"
 
 CONF_SERVICE = "service"
@@ -34,6 +36,13 @@ DOCKER_CREATE_TIMEOUT = 600  # 10 minutes – container creation can take a long
 
 DOCKER_SERVICES_EXECUTABLE = "docker_services"
 DOCKER_CREATE_EXECUTABLE = "docker_create"
+
+# Shared semaphore that limits the total number of concurrent SSH calls across
+# all sensors and service handlers.  This prevents overloading the ssh_command
+# integration (and the remote host) when many containers are configured.
+# asyncio.Semaphore can safely be created at module level in Python 3.10+
+# (no running event loop required); Home Assistant requires Python 3.12+.
+_SSH_SEMAPHORE = asyncio.Semaphore(10)
 
 URL_BASE = "/ssh_docker"
 SSH_DOCKER_CARDS = [

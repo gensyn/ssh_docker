@@ -22,9 +22,10 @@ from .const import (
     SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE,
     DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
     DOCKER_SERVICES_EXECUTABLE, DOCKER_CREATE_EXECUTABLE, DOCKER_CREATE_TIMEOUT,
+    _SSH_SEMAPHORE,
 )
 from .frontend import SshDockerPanelRegistration
-from .sensor import DockerContainerSensor, _SSH_SEMAPHORE
+from .sensor import DockerContainerSensor
 
 _PLATFORMS: list[Platform] = [Platform.SENSOR]
 _LOGGER = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ async def _ssh_run(
 ) -> tuple[str, int]:
     """Execute a command via ssh_command service. Returns (stdout, exit_status).
 
-    Concurrent executions are limited by the shared _SSH_SEMAPHORE from sensor.py.
+    Concurrent executions are limited by the shared _SSH_SEMAPHORE from const.py.
     """
     _LOGGER.debug(
         "Running SSH command on %s: %s", options.get(CONF_HOST, "<unknown>"), command

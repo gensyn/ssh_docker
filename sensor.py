@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from datetime import timedelta
@@ -24,18 +23,12 @@ from .const import (
     CONF_CREATED, CONF_IMAGE, SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS, DEFAULT_DOCKER_COMMAND,
     DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT, DOCKER_CREATE_EXECUTABLE,
+    _SSH_SEMAPHORE,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 SCAN_INTERVAL = timedelta(hours=24)
-
-# Shared semaphore that limits the total number of concurrent SSH calls across
-# all sensors and service handlers.  This prevents overloading the ssh_command
-# integration (and the remote host) when many containers are configured.
-# asyncio.Semaphore can safely be created at module level in Python 3.10+
-# (no running event loop required); Home Assistant requires Python 3.12+.
-_SSH_SEMAPHORE = asyncio.Semaphore(10)
 
 STATE_UNAVAILABLE = "unavailable"
 
@@ -59,7 +52,7 @@ async def async_setup_entry(
 async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str) -> tuple[str, int]:
     """Run a command via the ssh_command service. Returns (stdout, exit_status).
 
-    Concurrent executions are limited by the shared _SSH_SEMAPHORE.
+    Concurrent executions are limited by the shared _SSH_SEMAPHORE from const.py.
     """
     service_data: dict[str, Any] = {
         CONF_HOST: options[CONF_HOST],
