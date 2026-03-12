@@ -320,10 +320,10 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         )
     except (json.JSONDecodeError, ValueError):
         _LOGGER.debug(
-            "Service discovery on %s: JSON parse failed, falling back to line-by-line output",
+            "Service discovery on %s: JSON parse failed, falling back to token-based output",
             host,
         )
-        service_names = [line.strip() for line in output.splitlines() if line.strip()]
+        service_names = [s for s in output.replace(",", " ").split() if s]
 
     configured_services = {
         e.data.get(CONF_SERVICE, e.data[CONF_NAME])

@@ -103,7 +103,7 @@ async def _check_service_exists(
         parsed = json.loads(output)
         service_names = [str(s) for s in parsed if s] if isinstance(parsed, list) else []
     except (json.JSONDecodeError, ValueError):
-        service_names = [line.strip() for line in output.splitlines() if line.strip()]
+        service_names = [s for s in output.replace(",", " ").split() if s]
 
     if not service_names:
         _LOGGER.debug(
