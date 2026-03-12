@@ -43,6 +43,11 @@ def _make_sensor(container_name="my_container", options=None):
 class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
     """Test the DockerContainerSensor entity."""
 
+    def setUp(self):
+        """Clear the docker_create availability cache before each test."""
+        import ssh_docker.sensor as sensor_module
+        sensor_module._DOCKER_CREATE_CACHE.clear()
+
     async def test_update_sets_running_state(self):
         """Test that a successful inspect returns the running state."""
         sensor = _make_sensor()

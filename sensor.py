@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import timedelta
 from typing import Any
 
@@ -29,6 +30,11 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(hours=24)
 
 STATE_UNAVAILABLE = "unavailable"
+
+# Cache docker_create availability per host to avoid redundant SSH calls when
+# many sensors share the same remote host.  TTL matches the sensor scan interval.
+_DOCKER_CREATE_CACHE: dict[str, tuple[bool, float]] = {}
+_DOCKER_CREATE_CACHE_TTL = SCAN_INTERVAL.total_seconds()
 
 
 async def async_setup_entry(
@@ -190,17 +196,32 @@ class DockerContainerSensor(SensorEntity):
         self.async_write_ha_state()
 
     async def _check_docker_create_available(self, options: dict[str, Any]) -> bool:
-        """Return True if the docker_create executable is present on the remote host."""
+        """Return True if the docker_create executable is present on the remote host.
+
+        Results are cached per host for the duration of the scan interval so that
+        sensors sharing a host only incur one SSH round-trip per poll cycle.
+        """
+        host = options.get(CONF_HOST, "")
+        now = time.monotonic()
+        cached = _DOCKER_CREATE_CACHE.get(host)
+        if cached is not None:
+            result, ts = cached
+            if now - ts < _DOCKER_CREATE_CACHE_TTL:
+                return result
+
         check_cmd = (
             f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1 && echo found"
             f" || (test -f /usr/bin/{DOCKER_CREATE_EXECUTABLE} && echo found || echo not_found)"
         )
         try:
             output, _ = await _ssh_run(self.hass, options, check_cmd)
-            return output.strip() == "found"
+            result = output.strip() == "found"
         except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
             _LOGGER.debug("Could not check for docker_create on host: %s", err)
-            return False
+            result = False
+
+        _DOCKER_CREATE_CACHE[host] = (result, now)
+        return result
 
     async def _auto_recreate(
             self, options: dict[str, Any], name: str, docker_create_available: bool = False
