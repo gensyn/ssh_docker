@@ -45,6 +45,7 @@ class SshDockerPanel extends HTMLElement {
     this._hostFilter = "all";
     this._narrow = false;
     this._lastSnapshot = null;
+    this._collapsedHosts = new Set();
   }
 
   set hass(hass) {
@@ -292,13 +293,17 @@ class SshDockerPanel extends HTMLElement {
       hostsHtml = `<p class="no-containers">${this._t("no_containers")}</p>`;
     } else {
       for (const [host, hostContainers] of Object.entries(groups)) {
+        const collapsed = this._collapsedHosts.has(host);
         const cards = hostContainers
           .map((c) => this._renderContainerCard(c))
           .join("");
         hostsHtml += `
           <div class="host-section">
-            <h2 class="host-title">🖥 ${host}</h2>
-            <div class="container-grid">${cards}</div>
+            <h2 class="host-title" data-host="${host}">
+              <span class="collapse-icon">${collapsed ? "▶" : "▼"}</span>
+              🖥 ${host} (${hostContainers.length})
+            </h2>
+            <div class="container-grid${collapsed ? " hidden" : ""}">${cards}</div>
           </div>
         `;
       }
@@ -386,11 +391,26 @@ class SshDockerPanel extends HTMLElement {
           color: var(--secondary-text-color, #727272);
           border-bottom: 1px solid var(--divider-color, #e0e0e0);
           padding-bottom: 6px;
+          cursor: pointer;
+          user-select: none;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .host-title:hover {
+          color: var(--primary-color, #03a9f4);
+        }
+        .collapse-icon {
+          font-size: 0.7em;
+          flex-shrink: 0;
         }
         .container-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
           gap: 16px;
+        }
+        .container-grid.hidden {
+          display: none;
         }
         .container-card {
           border-radius: 8px;
@@ -488,6 +508,19 @@ class SshDockerPanel extends HTMLElement {
         menuButton.narrow = this._narrow;
       }
     }
+
+    // Use event delegation for host-title collapse toggles to avoid re-attaching per-element.
+    this.shadowRoot.querySelector(".content").addEventListener("click", (e) => {
+      const title = e.target.closest(".host-title");
+      if (!title) return;
+      const host = title.dataset.host;
+      if (this._collapsedHosts.has(host)) {
+        this._collapsedHosts.delete(host);
+      } else {
+        this._collapsedHosts.add(host);
+      }
+      this._render();
+    });
 
     this.shadowRoot.querySelectorAll(".filter-btn:not(.host-filter-btn)").forEach((btn) => {
       btn.addEventListener("click", () => this._setFilter(btn.dataset.filter));
