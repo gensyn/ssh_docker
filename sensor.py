@@ -17,7 +17,6 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
-
 from .const import (
     DOMAIN, CONF_SERVICE, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES, CONF_UPDATE_AVAILABLE,
@@ -50,7 +49,8 @@ async def async_setup_entry(
     async_add_entities([sensor], update_before_add=True)
 
 
-async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, int]:
+async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[
+    str, int]:
     """Run a command via the ssh_command service. Returns (stdout, exit_status).
 
     Concurrent executions to the same remote host are limited by a per-host
@@ -113,7 +113,7 @@ class DockerContainerSensor(SensorEntity):
             name=self._name,
         )
 
-    async def async_update(self, _=None) -> None:
+    async def async_update(self) -> None:
         """Fetch the latest state from the remote docker host."""
         if self.hass.state != CoreState.running:
             # Delay the first update until Home Assistant is fully started so startup is not blocked by SSH calls.
@@ -135,7 +135,7 @@ class DockerContainerSensor(SensorEntity):
                 # proceed directly to the SSH logic.
                 if stagger_secs > 0:
                     await asyncio.sleep(stagger_secs)
-                await self.async_update()
+                await self.async_update_ha_state(force_refresh=True)
 
             self.hass.bus.async_listen_once(
                 EVENT_HOMEASSISTANT_STARTED, _staggered_update
@@ -162,7 +162,6 @@ class DockerContainerSensor(SensorEntity):
                 "host": host,
                 "docker_create_available": False
             }
-            self.async_write_ha_state()
             return
 
         if exit_status != 0 or not output:
@@ -178,7 +177,6 @@ class DockerContainerSensor(SensorEntity):
                 "host": host,
                 "docker_create_available": docker_create_available,
             }
-            self.async_write_ha_state()
             return
 
         parts = output.split(";", 3)
@@ -193,7 +191,6 @@ class DockerContainerSensor(SensorEntity):
                 "host": host,
                 "docker_create_available": docker_create_available,
             }
-            self.async_write_ha_state()
             return
 
         container_state, created, image_name, old_image_id = parts
@@ -234,7 +231,6 @@ class DockerContainerSensor(SensorEntity):
 
         if update_available and options.get(CONF_AUTO_UPDATE, False):
             await self._auto_recreate(options, service, docker_create_available)
-        self.async_write_ha_state()
 
     def set_transitional_state(self, state: str) -> None:
         """Set a transitional state and write it to HA immediately."""
