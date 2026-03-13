@@ -23,7 +23,7 @@ from .const import (
     DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
     DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     DOCKER_SERVICES_EXECUTABLE, DOCKER_CREATE_EXECUTABLE, DOCKER_CREATE_TIMEOUT,
-    _SSH_SEMAPHORE,
+    get_ssh_semaphore,
 )
 from .frontend import SshDockerPanelRegistration
 from .sensor import DockerContainerSensor
@@ -67,7 +67,7 @@ async def _ssh_run(
     if options.get(CONF_KNOWN_HOSTS):
         service_data["known_hosts"] = options[CONF_KNOWN_HOSTS]
 
-    async with _SSH_SEMAPHORE:
+    async with get_ssh_semaphore(options[CONF_HOST]):
         response = await hass.services.async_call(
             SSH_COMMAND_DOMAIN,
             SSH_COMMAND_SERVICE_EXECUTE,

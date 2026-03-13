@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from datetime import timedelta
@@ -23,7 +24,7 @@ from .const import (
     CONF_CREATED, CONF_IMAGE, SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS, DEFAULT_DOCKER_COMMAND,
     DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT, DOCKER_CREATE_EXECUTABLE,
-    DOCKER_PULL_TIMEOUT, _SSH_SEMAPHORE,
+    DOCKER_PULL_TIMEOUT, get_ssh_semaphore,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,7 +53,8 @@ async def async_setup_entry(
 async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, int]:
     """Run a command via the ssh_command service. Returns (stdout, exit_status).
 
-    Concurrent executions are limited by the shared _SSH_SEMAPHORE from const.py.
+    Concurrent executions to the same remote host are limited by a per-host
+    semaphore (see get_ssh_semaphore in const.py).
     """
     service_data: dict[str, Any] = {
         CONF_HOST: options[CONF_HOST],
@@ -68,7 +70,7 @@ async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str, t
     if options.get(CONF_KNOWN_HOSTS):
         service_data["known_hosts"] = options[CONF_KNOWN_HOSTS]
 
-    async with _SSH_SEMAPHORE:
+    async with get_ssh_semaphore(options[CONF_HOST]):
         response = await hass.services.async_call(
             SSH_COMMAND_DOMAIN,
             SSH_COMMAND_SERVICE_EXECUTE,
@@ -113,9 +115,22 @@ class DockerContainerSensor(SensorEntity):
     async def async_update(self, _=None) -> None:
         """Fetch the latest state from the remote docker host."""
         if self.hass.state != CoreState.running:
-            # Delay the first update until Home Assistant is fully started so startup is not blocked by SSH calls
+            # Delay the first update until Home Assistant is fully started so startup is not blocked by SSH calls.
+            # Each sensor registers a one-shot listener but adds a small deterministic stagger (derived from the
+            # entry_id) so that all sensors don't fire their initial SSH calls simultaneously.
+            # abs() guards against negative hash values on some platforms.
+            stagger_secs = abs(hash(self.entry.entry_id)) % 60
+
+            async def _staggered_update(_event=None):
+                # HA is now in CoreState.running (event only fires after that), so
+                # the recursive call below will NOT re-register a listener; it will
+                # proceed directly to the SSH logic.
+                if stagger_secs > 0:
+                    await asyncio.sleep(stagger_secs)
+                await self.async_update()
+
             self.hass.bus.async_listen_once(
-                EVENT_HOMEASSISTANT_STARTED, self.async_update
+                EVENT_HOMEASSISTANT_STARTED, _staggered_update
             )
             return
 
