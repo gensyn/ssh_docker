@@ -76,12 +76,7 @@ When a new entry is added the integration validates the SSH connection and verif
 
 ### ⚙️ Options
 
-After an entry is created, click the cog icon ⚙️ to adjust its settings. All SSH and Docker fields are editable in options. Additionally:
-
-| Option | Description |
-|--------|-------------|
-| **Check for updates** | When enabled, runs `docker pull` during each sensor update to detect newer upstream images (uses a 10-minute timeout to allow large downloads; default: `false`) |
-| **Auto update** | When enabled, automatically recreates the container when a newer image is detected (requires `docker_create` on the remote host; default: `false`) |
+After an entry is created, click the cog icon ⚙️ to adjust its settings. All SSH and Docker fields are editable in options.
 
 > **Note:** `Name` and `Service` cannot be changed after the entry is created.
 
@@ -138,7 +133,7 @@ The sensor state transitions to `creating` while the operation runs. Non-zero ex
 ```yaml
 action: ssh_docker.create
 target:
-  entity_id: sensor.ssh_docker_beets
+  entity_id: sensor.ssh_docker_grocy
 ```
 
 ### `ssh_docker.restart`
@@ -148,7 +143,7 @@ Restarts the Docker container (also works to start a stopped/exited container). 
 ```yaml
 action: ssh_docker.restart
 target:
-  entity_id: sensor.ssh_docker_beets
+  entity_id: sensor.ssh_docker_grocy
 ```
 
 ### `ssh_docker.stop`
@@ -158,7 +153,7 @@ Stops the Docker container. The sensor state transitions to `stopping` while the
 ```yaml
 action: ssh_docker.stop
 target:
-  entity_id: sensor.ssh_docker_beets
+  entity_id: sensor.ssh_docker_grocy
 ```
 
 ### `ssh_docker.remove`
@@ -168,7 +163,7 @@ Stops and removes the Docker container. The sensor state transitions to `removin
 ```yaml
 action: ssh_docker.remove
 target:
-  entity_id: sensor.ssh_docker_beets
+  entity_id: sensor.ssh_docker_grocy
 ```
 
 ---
@@ -177,7 +172,7 @@ target:
 
 When a new entry is successfully added, SSH Docker automatically scans the host for additional Docker containers and offers to add unconfigured ones as new entries. The discovery form is pre-filled with all SSH and Docker settings from the original entry — including the `check_for_updates` and `auto_update` values — so the user only needs to confirm the container name.
 
-Discovered container names are automatically capitalized in the **Name** field (e.g., `beets` → `Beets`) while the **Service** field retains the original lowercase name.
+Discovered container names are automatically capitalized in the **Name** field (e.g., `grocy` → `Grocy`) while the **Service** field retains the original lowercase name.
 
 **Discovery logic:**
 1. If `docker_services` is present on the remote host's `PATH` or at `/usr/bin/docker_services`, it is called and its output is parsed as a list of container names (JSON array, or names separated by spaces, commas, or newlines).
@@ -228,7 +223,7 @@ An individual container card is also available for any Lovelace dashboard:
 
 ```yaml
 type: custom:ssh-docker-card
-entity: sensor.ssh_docker_beets
+entity: sensor.ssh_docker_grocy
 ```
 
 The card displays the container's state, image, creation date, and an **⬆ Update available** badge when applicable. It includes the same action buttons as the sidebar panel with identical visibility conditions:
