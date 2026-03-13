@@ -1,0 +1,135 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add Docker Container",
+        "description": "Enter the details for the remote Docker container.",
+        "data": {
+          "name": "Name",
+          "service": "Service",
+          "host": "Host",
+          "username": "Username",
+          "password": "Password",
+          "key_file": "Key File",
+          "check_known_hosts": "Check Known Hosts",
+          "known_hosts": "Known Hosts",
+          "docker_command": "Docker Command",
+          "check_for_updates": "Check for Updates",
+          "auto_update": "Auto Update"
+        }
+      }
+    },
+    "error": {
+      "password_or_key_file_required": "Either password or key file must be provided.",
+      "cannot_connect": "Cannot connect to the remote host.",
+      "docker_command_failed": "The docker command failed. Check the docker command and permissions.",
+      "host_key_not_verifiable": "The host key could not be verified.",
+      "login_failed": "SSH login failed. Check username and password/key file.",
+      "host_not_reachable": "Host is not reachable.",
+      "connection_timed_out": "Connection to the host timed out.",
+      "service_not_found": "The service name was not found on the remote host. Check the name and make sure the container exists."
+    },
+    "abort": {
+      "already_configured": "This docker container on this host is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update Docker Container Options",
+        "data": {
+          "host": "Host",
+          "username": "Username",
+          "password": "Password",
+          "key_file": "Key File",
+          "check_known_hosts": "Check Known Hosts",
+          "known_hosts": "Known Hosts",
+          "docker_command": "Docker Command",
+          "check_for_updates": "Check for Updates",
+          "auto_update": "Auto Update"
+        }
+      }
+    },
+    "error": {
+      "password_or_key_file_required": "Either password or key file must be provided.",
+      "cannot_connect": "Cannot connect to the remote host.",
+      "docker_command_failed": "The docker command failed. Check the docker command and permissions.",
+      "host_key_not_verifiable": "The host key could not be verified.",
+      "login_failed": "SSH login failed. Check username and password/key file.",
+      "host_not_reachable": "Host is not reachable.",
+      "connection_timed_out": "Connection to the host timed out."
+    }
+  },
+  "services": {
+    "create": {
+      "name": "Create Docker Container",
+      "description": "Creates a docker container using the docker_create executable on the remote host.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "The entity ID of the docker container sensor."
+        }
+      }
+    },
+    "restart": {
+      "name": "Restart Docker Container",
+      "description": "Restarts a docker container on the remote host.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "The entity ID of the docker container sensor."
+        }
+      }
+    },
+    "stop": {
+      "name": "Stop Docker Container",
+      "description": "Stops a docker container on the remote host.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "The entity ID of the docker container sensor."
+        }
+      }
+    },
+    "remove": {
+      "name": "Remove Docker Container",
+      "description": "Stops and removes a docker container on the remote host.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "The entity ID of the docker container sensor."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "State",
+        "state": {
+          "running": "Running",
+          "exited": "Exited",
+          "created": "Created",
+          "paused": "Paused",
+          "restarting": "Restarting",
+          "dead": "Dead",
+          "unavailable": "Unavailable"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "entity_not_found": {
+      "message": "Could not find the specified entity."
+    },
+    "docker_create_not_found": {
+      "message": "The docker_create executable was not found on the remote host."
+    },
+    "docker_create_failed": {
+      "message": "The docker_create command failed."
+    },
+    "docker_command_failed": {
+      "message": "The docker command failed."
+    }
+  }
+}

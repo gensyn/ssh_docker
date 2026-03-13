@@ -1,0 +1,135 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Docker-Container hinzufügen",
+        "description": "Geben Sie die Details für den entfernten Docker-Container ein.",
+        "data": {
+          "name": "Name",
+          "service": "Dienst",
+          "host": "Host",
+          "username": "Benutzername",
+          "password": "Passwort",
+          "key_file": "Schlüsseldatei",
+          "check_known_hosts": "Bekannte Hosts prüfen",
+          "known_hosts": "Bekannte Hosts",
+          "docker_command": "Docker-Befehl",
+          "check_for_updates": "Auf Updates prüfen",
+          "auto_update": "Automatisch aktualisieren"
+        }
+      }
+    },
+    "error": {
+      "password_or_key_file_required": "Es muss entweder ein Passwort oder eine Schlüsseldatei angegeben werden.",
+      "cannot_connect": "Es kann keine Verbindung zum entfernten Host hergestellt werden.",
+      "docker_command_failed": "Der Docker-Befehl ist fehlgeschlagen. Überprüfen Sie den Docker-Befehl und die Berechtigungen.",
+      "host_key_not_verifiable": "Der Host-Schlüssel konnte nicht verifiziert werden.",
+      "login_failed": "SSH-Anmeldung fehlgeschlagen. Überprüfen Sie Benutzername und Passwort/Schlüsseldatei.",
+      "host_not_reachable": "Host ist nicht erreichbar.",
+      "connection_timed_out": "Die Verbindung zum Host hat das Zeitlimit überschritten.",
+      "service_not_found": "Der Dienstname wurde auf dem entfernten Host nicht gefunden. Überprüfen Sie den Namen und stellen Sie sicher, dass der Container existiert."
+    },
+    "abort": {
+      "already_configured": "Dieser Docker-Container auf diesem Host ist bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Docker-Container-Optionen aktualisieren",
+        "data": {
+          "host": "Host",
+          "username": "Benutzername",
+          "password": "Passwort",
+          "key_file": "Schlüsseldatei",
+          "check_known_hosts": "Bekannte Hosts prüfen",
+          "known_hosts": "Bekannte Hosts",
+          "docker_command": "Docker-Befehl",
+          "check_for_updates": "Auf Updates prüfen",
+          "auto_update": "Automatisch aktualisieren"
+        }
+      }
+    },
+    "error": {
+      "password_or_key_file_required": "Es muss entweder ein Passwort oder eine Schlüsseldatei angegeben werden.",
+      "cannot_connect": "Es kann keine Verbindung zum entfernten Host hergestellt werden.",
+      "docker_command_failed": "Der Docker-Befehl ist fehlgeschlagen. Überprüfen Sie den Docker-Befehl und die Berechtigungen.",
+      "host_key_not_verifiable": "Der Host-Schlüssel konnte nicht verifiziert werden.",
+      "login_failed": "SSH-Anmeldung fehlgeschlagen. Überprüfen Sie Benutzername und Passwort/Schlüsseldatei.",
+      "host_not_reachable": "Host ist nicht erreichbar.",
+      "connection_timed_out": "Die Verbindung zum Host hat das Zeitlimit überschritten."
+    }
+  },
+  "services": {
+    "create": {
+      "name": "Docker-Container erstellen",
+      "description": "Erstellt einen Docker-Container mithilfe des docker_create-Programms auf dem entfernten Host.",
+      "fields": {
+        "entity_id": {
+          "name": "Entitäts-ID",
+          "description": "Die Entitäts-ID des Docker-Container-Sensors."
+        }
+      }
+    },
+    "restart": {
+      "name": "Docker-Container neu starten",
+      "description": "Startet einen Docker-Container auf dem entfernten Host neu.",
+      "fields": {
+        "entity_id": {
+          "name": "Entitäts-ID",
+          "description": "Die Entitäts-ID des Docker-Container-Sensors."
+        }
+      }
+    },
+    "stop": {
+      "name": "Docker-Container stoppen",
+      "description": "Stoppt einen Docker-Container auf dem entfernten Host.",
+      "fields": {
+        "entity_id": {
+          "name": "Entitäts-ID",
+          "description": "Die Entitäts-ID des Docker-Container-Sensors."
+        }
+      }
+    },
+    "remove": {
+      "name": "Docker-Container entfernen",
+      "description": "Stoppt und entfernt einen Docker-Container auf dem entfernten Host.",
+      "fields": {
+        "entity_id": {
+          "name": "Entitäts-ID",
+          "description": "Die Entitäts-ID des Docker-Container-Sensors."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Status",
+        "state": {
+          "running": "Läuft",
+          "exited": "Beendet",
+          "created": "Erstellt",
+          "paused": "Pausiert",
+          "restarting": "Wird neu gestartet",
+          "dead": "Abgestürzt",
+          "unavailable": "Nicht verfügbar"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "entity_not_found": {
+      "message": "Die angegebene Entität konnte nicht gefunden werden."
+    },
+    "docker_create_not_found": {
+      "message": "Das Programm docker_create wurde auf dem entfernten Host nicht gefunden."
+    },
+    "docker_create_failed": {
+      "message": "Der Befehl docker_create ist fehlgeschlagen."
+    },
+    "docker_command_failed": {
+      "message": "Der Docker-Befehl ist fehlgeschlagen."
+    }
+  }
+}

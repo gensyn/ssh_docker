@@ -1,0 +1,47 @@
+create:
+  name: Create Docker Container
+  description: Creates a docker container using the docker_create executable on the remote host.
+  fields:
+    entity_id:
+      name: Entity ID
+      description: The entity ID of the docker container sensor.
+      required: true
+      selector:
+        entity:
+          domain: sensor
+
+restart:
+  name: Restart Docker Container
+  description: Restarts a docker container on the remote host.
+  fields:
+    entity_id:
+      name: Entity ID
+      description: The entity ID of the docker container sensor.
+      required: true
+      selector:
+        entity:
+          domain: sensor
+
+stop:
+  name: Stop Docker Container
+  description: Stops a docker container on the remote host.
+  fields:
+    entity_id:
+      name: Entity ID
+      description: The entity ID of the docker container sensor.
+      required: true
+      selector:
+        entity:
+          domain: sensor
+
+remove:
+  name: Remove Docker Container
+  description: Stops and removes a docker container on the remote host.
+  fields:
+    entity_id:
+      name: Entity ID
+      description: The entity ID of the docker container sensor.
+      required: true
+      selector:
+        entity:
+          domain: sensor
