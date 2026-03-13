@@ -67,6 +67,8 @@ Fill in the following fields:
 | **Check known hosts** | — | Verify host key against known hosts (default: `true`) |
 | **Known hosts** | — | Path or string of the known hosts (only valid when `check_known_hosts` is `true`) |
 | **Docker command** | — | The Docker executable on the remote host, e.g. `docker`, `sudo docker`, `podman` (default: `docker`) |
+| **Check for updates** | — | When enabled, checks for newer upstream images during each sensor update (default: `false`) |
+| **Auto update** | — | When enabled and an update is detected, automatically recreates the container (requires `docker_create`; default: `false`) |
 
 > **Note:** Either `password` or `key_file` must be provided.
 
@@ -78,6 +80,7 @@ After an entry is created, click the cog icon ⚙️ to adjust its settings. All
 
 | Option | Description |
 |--------|-------------|
+| **Check for updates** | When enabled, runs `docker pull` during each sensor update to detect newer upstream images (uses a 10-minute timeout to allow large downloads; default: `false`) |
 | **Auto update** | When enabled, automatically recreates the container when a newer image is detected (requires `docker_create` on the remote host; default: `false`) |
 
 > **Note:** `Name` and `Service` cannot be changed after the entry is created.
@@ -111,10 +114,11 @@ The sensor is updated every **24 hours** by default, or on demand via the **Refr
 
 | Attribute | Description |
 |-----------|-------------|
+| `name` | Friendly display name of the container (language-independent; used by the panel and Lovelace card) |
 | `host` | Remote host the container runs on |
 | `image` | Docker image name |
 | `created` | Container creation timestamp |
-| `update_available` | `true` when a newer upstream image is available |
+| `update_available` | `true` when a newer upstream image is available (only set when `check_for_updates` is enabled) |
 | `docker_create_available` | `true` when the `docker_create` executable is present on the remote host |
 
 ---
@@ -171,11 +175,13 @@ target:
 
 ## 🔍 Automatic Discovery
 
-When a new entry is successfully added, SSH Docker automatically scans the host for additional Docker containers and offers to add unconfigured ones as new entries. The discovery form is pre-filled with all SSH and Docker settings from the original entry — only the container name needs to be confirmed.
+When a new entry is successfully added, SSH Docker automatically scans the host for additional Docker containers and offers to add unconfigured ones as new entries. The discovery form is pre-filled with all SSH and Docker settings from the original entry — including the `check_for_updates` and `auto_update` values — so the user only needs to confirm the container name.
+
+Discovered container names are automatically capitalized in the **Name** field (e.g., `beets` → `Beets`) while the **Service** field retains the original lowercase name.
 
 **Discovery logic:**
-1. If `docker_services` is present on the remote host's `PATH` or at `/usr/bin/docker_services`, it is called and expected to return a JSON list of container name strings.
-2. Otherwise, the integration falls back to listing all containers via `docker ps -a`.
+1. If `docker_services` is present on the remote host's `PATH` or at `/usr/bin/docker_services`, it is called and its output is parsed as a list of container names (JSON array, or names separated by spaces, commas, or newlines).
+2. Otherwise, the integration falls back to listing all containers via `docker ps -a`, whose output is also parsed flexibly (any combination of spaces, commas, or newlines).
 
 ---
 
@@ -185,24 +191,34 @@ A **SSH Docker** entry is automatically added to the Home Assistant sidebar when
 
 The panel shows all containers grouped by host with live filtering:
 
+### State filter
+
 | Filter | Shows |
 |--------|-------|
-| **All** | Every container |
+| **All states** | Every container |
 | **running** | Running containers |
 | **exited** | Stopped containers |
 | **unavailable** | Unreachable containers |
 | **⬆ updates (N)** | Containers with a newer image available (shown only when applicable) |
 
+### Host filter
+
+When containers span more than one host, a second filter row appears beneath the state filter. It shows **All Hosts** plus a button for each individual host. Host and state filters can be combined — for example, selecting **running** and then **myserver** shows only running containers on that host.
+
 Each container card displays the current state (color-coded), image, creation date, and an **⬆ Update available** badge when applicable. Action buttons are shown conditionally:
 
 | Button | Condition |
 |--------|-----------|
-| **✚ Create** / **✚ Recreate** | `docker_create_available` is `true`; label is "Create" when `unavailable`, "Recreate" otherwise |
-| **↺ Restart** | Container is `running` |
+| **✚ Create** | `docker_create_available` is `true` and container is `unavailable` |
+| **✚ Recreate** | `docker_create_available` is `true`, container exists, and no update is pending |
+| **⬆ Update** | `docker_create_available` is `true`, container is `running`, and `update_available` is `true` |
 | **▶ Start** | Container is `exited`, `created`, `dead`, or `paused` |
+| **↺ Restart** | Container is `running` |
 | **■ Stop** | Container is `running` |
 | **🗑 Remove** | Container is not `unavailable` |
 | **↻ Refresh** | Always shown; triggers an immediate sensor update |
+
+The panel is mobile-friendly: on narrow screens a hamburger menu button (`☰`) appears in the toolbar to open the Home Assistant sidebar.
 
 ---
 
@@ -214,6 +230,19 @@ An individual container card is also available for any Lovelace dashboard:
 type: custom:ssh-docker-card
 entity: sensor.ssh_docker_beets
 ```
+
+The card displays the container's state, image, creation date, and an **⬆ Update available** badge when applicable. It includes the same action buttons as the sidebar panel with identical visibility conditions:
+
+| Button | Condition |
+|--------|-----------|
+| **✚ Create** | `docker_create_available` is `true` and container is `unavailable` |
+| **✚ Recreate** | `docker_create_available` is `true`, container exists, and no update is pending |
+| **⬆ Update** | `docker_create_available` is `true`, container is `running`, and `update_available` is `true` |
+| **▶ Start** | Container is `exited`, `created`, `dead`, or `paused` |
+| **↺ Restart** | Container is `running` |
+| **■ Stop** | Container is `running` |
+| **🗑 Remove** | Container is not `unavailable` |
+| **↻ Refresh** | Always shown; triggers an immediate sensor update |
 
 ---
 
@@ -235,13 +264,42 @@ docker compose -f /opt/docker/${SERVICE}/docker-compose.yml up -d
 
 ### `docker_services`
 
-Optional. If present on the remote host's `PATH` or at `/usr/bin/docker_services`, it is used during discovery to list available containers. It must return a JSON array of container name strings to stdout.
+Optional. If present on the remote host's `PATH` or at `/usr/bin/docker_services`, it is used during discovery to list available containers. Its output is parsed flexibly: a JSON array of strings is preferred, but whitespace-, comma-, or newline-separated names are also accepted.
 
 **Example `docker_services` script:**
 ```bash
 #!/bin/bash
 docker ps -a --format '{{.Names}}' | python3 -c "import sys, json; print(json.dumps(sys.stdin.read().split()))"
 ```
+
+---
+
+## ⚡ Performance & Reliability
+
+### SSH Concurrency Limiting
+
+SSH Docker uses **per-host semaphores** to cap concurrent SSH connections to a maximum of **3 per host**. This prevents overloading the remote SSH server when many containers are configured on the same host, avoiding `Connection lost` errors that would otherwise occur when many sensors update simultaneously.
+
+### Startup Stagger
+
+When Home Assistant starts, each sensor defers its first SSH update until after the `homeassistant_started` event. To avoid a burst of simultaneous connections, each entry waits a deterministic delay of **0–59 seconds** (derived from the entry ID) before its first SSH call. This spreads the initial load across approximately one minute, even with dozens of containers configured on the same host.
+
+### `docker_create` Availability Cache
+
+The check for whether `docker_create` is present on the remote host is performed **once per host per poll cycle** (cached for 24 hours). All containers on the same host reuse the cached result, so only one SSH round-trip is made per host regardless of how many containers are configured.
+
+---
+
+## 🌍 Translations
+
+SSH Docker ships with translations for the following languages:
+
+| Language | Code |
+|----------|------|
+| English | `en` |
+| German | `de` |
+
+Community contributions for additional languages are welcome!
 
 ---
 
