@@ -5,6 +5,7 @@ class SshDockerPanel extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     this._filter = "all";
+    this._hostFilter = "all";
     this._narrow = false;
   }
 
@@ -26,6 +27,10 @@ class SshDockerPanel extends HTMLElement {
     this._panel = panel;
   }
 
+  _getContainerHost(entity) {
+    return entity.attributes && entity.attributes.host ? entity.attributes.host : "Unknown Host";
+  }
+
   _getAllContainers() {
     if (!this._hass) return [];
     const containers = Object.values(this._hass.states).filter((entity) =>
@@ -39,7 +44,7 @@ class SshDockerPanel extends HTMLElement {
     });
   }
 
-  _getFilteredContainers() {
+  _getStateFilteredContainers() {
     const containers = this._getAllContainers();
     if (this._filter === "all") return containers;
     if (this._filter === "update_available") {
@@ -48,18 +53,26 @@ class SshDockerPanel extends HTMLElement {
     return containers.filter((c) => c.state === this._filter);
   }
 
+  _getFilteredContainers() {
+    const containers = this._getStateFilteredContainers();
+    if (this._hostFilter === "all") return containers;
+    return containers.filter((c) => this._getContainerHost(c) === this._hostFilter);
+  }
+
   _setFilter(filter) {
     this._filter = filter;
+    this._render();
+  }
+
+  _setHostFilter(host) {
+    this._hostFilter = host;
     this._render();
   }
 
   _groupByHost(containers) {
     const groups = {};
     for (const entity of containers) {
-      const host =
-        entity.attributes && entity.attributes.host
-          ? entity.attributes.host
-          : "Unknown Host";
+      const host = this._getContainerHost(entity);
       if (!groups[host]) groups[host] = [];
       groups[host].push(entity);
     }
@@ -145,6 +158,7 @@ class SshDockerPanel extends HTMLElement {
     if (!this._hass) return;
 
     const allContainers = this._getAllContainers();
+    const stateFiltered = this._getStateFilteredContainers();
     const filteredContainers = this._getFilteredContainers();
 
     const states = ["running", "exited", "paused", "restarting", "dead", "unavailable"];
@@ -168,6 +182,31 @@ class SshDockerPanel extends HTMLElement {
            </button>`
       )
       .join("");
+
+    // Collect distinct hosts from all containers (for host filter visibility).
+    const allHosts = [...new Set(
+      allContainers.map((c) => this._getContainerHost(c))
+    )].sort();
+
+    // Host filter: only show when there are multiple distinct hosts.
+    let hostFilterHtml = "";
+    if (allHosts.length > 1) {
+      // Count containers per host within the current state-filtered set.
+      const hostCounts = { all: stateFiltered.length };
+      for (const h of allHosts) {
+        hostCounts[h] = stateFiltered.filter((c) => this._getContainerHost(c) === h).length;
+      }
+      const hostButtons = ["all", ...allHosts]
+        .map(
+          (h) =>
+            `<button class="filter-btn host-filter-btn${this._hostFilter === h ? " active" : ""}"
+                     data-host="${h}">
+              ${h === "all" ? "All Hosts" : h} (${hostCounts[h]})
+             </button>`
+        )
+        .join("");
+      hostFilterHtml = `<div class="filters host-filters">${hostButtons}</div>`;
+    }
 
     const groups = this._groupByHost(filteredContainers);
     let hostsHtml = "";
@@ -218,6 +257,9 @@ class SshDockerPanel extends HTMLElement {
           gap: 8px;
           margin-bottom: 16px;
         }
+        .host-filters {
+          margin-top: -8px;
+        }
         .filter-btn {
           padding: 6px 14px;
           border: 2px solid var(--primary-color, #03a9f4);
@@ -246,6 +288,17 @@ class SshDockerPanel extends HTMLElement {
         }
         .filter-btn[data-filter="update_available"]:hover:not(.active) {
           background: rgba(230, 126, 34, 0.1);
+        }
+        .host-filter-btn {
+          border-color: var(--secondary-text-color, #727272);
+          color: var(--secondary-text-color, #727272);
+        }
+        .host-filter-btn.active {
+          background: var(--secondary-text-color, #727272);
+          color: white;
+        }
+        .host-filter-btn:hover:not(.active) {
+          background: rgba(114, 114, 114, 0.1);
         }
         .host-section {
           margin-bottom: 24px;
@@ -346,6 +399,7 @@ class SshDockerPanel extends HTMLElement {
       </div>
       <div class="content">
         <div class="filters">${filterButtons}</div>
+        ${hostFilterHtml}
         ${hostsHtml}
       </div>
     `;
@@ -358,8 +412,12 @@ class SshDockerPanel extends HTMLElement {
       }
     }
 
-    this.shadowRoot.querySelectorAll(".filter-btn").forEach((btn) => {
+    this.shadowRoot.querySelectorAll(".filter-btn:not(.host-filter-btn)").forEach((btn) => {
       btn.addEventListener("click", () => this._setFilter(btn.dataset.filter));
+    });
+
+    this.shadowRoot.querySelectorAll(".host-filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => this._setHostFilter(btn.dataset.host));
     });
 
     this.shadowRoot.querySelectorAll(".action-btn").forEach((btn) => {
