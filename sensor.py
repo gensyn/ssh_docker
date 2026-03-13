@@ -19,11 +19,11 @@ from homeassistant.util import slugify
 
 from .const import (
     DOMAIN, CONF_SERVICE, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
-    CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_UPDATE_AVAILABLE,
+    CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES, CONF_UPDATE_AVAILABLE,
     CONF_CREATED, CONF_IMAGE, SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS, DEFAULT_DOCKER_COMMAND,
     DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT, DOCKER_CREATE_EXECUTABLE,
-    _SSH_SEMAPHORE,
+    DOCKER_PULL_TIMEOUT, _SSH_SEMAPHORE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ async def async_setup_entry(
     async_add_entities([sensor], update_before_add=True)
 
 
-async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str) -> tuple[str, int]:
+async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, int]:
     """Run a command via the ssh_command service. Returns (stdout, exit_status).
 
     Concurrent executions are limited by the shared _SSH_SEMAPHORE from const.py.
@@ -59,7 +59,7 @@ async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str) -
         CONF_USERNAME: options[CONF_USERNAME],
         "check_known_hosts": options.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
         "command": command,
-        "timeout": DEFAULT_TIMEOUT,
+        "timeout": timeout,
     }
     if options.get(CONF_PASSWORD):
         service_data[CONF_PASSWORD] = options[CONF_PASSWORD]
@@ -160,21 +160,22 @@ class DockerContainerSensor(SensorEntity):
         container_state, created, image_name, old_image_id = parts
 
         update_available = False
-        pull_cmd = (
-            f"{docker_cmd} pull {image_name} > /dev/null 2>&1;"
-            f" {docker_cmd} image inspect {image_name} --format '{{{{.Id}}}}'"
-        )
-        try:
-            new_image_id, _ = await _ssh_run(self.hass, options, pull_cmd)
-            update_available = bool(new_image_id) and new_image_id != old_image_id.strip()
-            if update_available:
-                _LOGGER.info(
-                    "Update available for container %s: image %s has a newer version",
-                    service,
-                    image_name,
-                )
-        except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
-            _LOGGER.debug("Could not check for image updates for %s: %s", service, err)
+        if options.get(CONF_CHECK_FOR_UPDATES, False):
+            pull_cmd = (
+                f"{docker_cmd} pull {image_name} > /dev/null 2>&1;"
+                f" {docker_cmd} image inspect {image_name} --format '{{{{.Id}}}}'"
+            )
+            try:
+                new_image_id, _ = await _ssh_run(self.hass, options, pull_cmd, timeout=DOCKER_PULL_TIMEOUT)
+                update_available = bool(new_image_id) and new_image_id != old_image_id.strip()
+                if update_available:
+                    _LOGGER.info(
+                        "Update available for container %s: image %s has a newer version",
+                        service,
+                        image_name,
+                    )
+            except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
+                _LOGGER.debug("Could not check for image updates for %s: %s", service, err)
 
         # Check docker_create availability (for the panel Create button).
         docker_create_available = await self._check_docker_create_available(options)

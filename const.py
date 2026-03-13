@@ -10,6 +10,7 @@ CONF_CHECK_KNOWN_HOSTS = "check_known_hosts"
 CONF_KNOWN_HOSTS = "known_hosts"
 CONF_DOCKER_COMMAND = "docker_command"
 CONF_AUTO_UPDATE = "auto_update"
+CONF_CHECK_FOR_UPDATES = "check_for_updates"
 
 CONF_UPDATE_AVAILABLE = "update_available"
 CONF_CONTAINER_STATE = "container_state"
@@ -31,8 +32,10 @@ SERVICE_REMOVE = "remove"
 DEFAULT_DOCKER_COMMAND = "docker"
 DEFAULT_CHECK_KNOWN_HOSTS = True
 DEFAULT_AUTO_UPDATE = False
+DEFAULT_CHECK_FOR_UPDATES = False
 DEFAULT_TIMEOUT = 60
 DOCKER_CREATE_TIMEOUT = 600  # 10 minutes – container creation can take a long time
+DOCKER_PULL_TIMEOUT = 600  # 10 minutes – pulling a large image can take a long time
 
 DOCKER_SERVICES_EXECUTABLE = "docker_services"
 DOCKER_CREATE_EXECUTABLE = "docker_create"

@@ -13,8 +13,9 @@ from homeassistant.exceptions import ServiceValidationError, HomeAssistantError
 
 from .const import (
     CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
-    CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, DEFAULT_DOCKER_COMMAND,
-    DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_AUTO_UPDATE,
+    CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES,
+    DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_AUTO_UPDATE,
+    DEFAULT_CHECK_FOR_UPDATES,
     SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE, SSH_CONF_EXIT_STATUS,
 )
 
@@ -101,6 +102,7 @@ async def validate_and_build_options(
         CONF_CHECK_KNOWN_HOSTS: user_input.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
         CONF_DOCKER_COMMAND: docker_cmd,
         CONF_AUTO_UPDATE: user_input.get(CONF_AUTO_UPDATE, DEFAULT_AUTO_UPDATE),
+        CONF_CHECK_FOR_UPDATES: user_input.get(CONF_CHECK_FOR_UPDATES, DEFAULT_CHECK_FOR_UPDATES),
     }
     if has_password:
         options[CONF_PASSWORD] = user_input[CONF_PASSWORD]
@@ -122,6 +124,7 @@ STEP_OPTIONS_DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_KNOWN_HOSTS): str,
         vol.Optional(CONF_DOCKER_COMMAND, default=DEFAULT_DOCKER_COMMAND): str,
         vol.Optional(CONF_AUTO_UPDATE, default=DEFAULT_AUTO_UPDATE): bool,
+        vol.Optional(CONF_CHECK_FOR_UPDATES, default=DEFAULT_CHECK_FOR_UPDATES): bool,
     }
 )
 
@@ -164,6 +167,10 @@ class SshDockerOptionsFlow(OptionsFlow):
                     CONF_DOCKER_COMMAND,
                     default=current.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND),
                 ): str,
+                vol.Optional(
+                    CONF_CHECK_FOR_UPDATES,
+                    default=current.get(CONF_CHECK_FOR_UPDATES, DEFAULT_CHECK_FOR_UPDATES),
+                ): bool,
                 vol.Optional(
                     CONF_AUTO_UPDATE,
                     default=current.get(CONF_AUTO_UPDATE, DEFAULT_AUTO_UPDATE),

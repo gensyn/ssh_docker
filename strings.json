@@ -43,6 +43,7 @@
           "check_known_hosts": "Check Known Hosts",
           "known_hosts": "Known Hosts",
           "docker_command": "Docker Command",
+          "check_for_updates": "Check for Updates",
           "auto_update": "Auto Update"
         }
       }
