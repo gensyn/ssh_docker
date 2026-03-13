@@ -9,8 +9,8 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME, CONF_HOST, CONF_USERNAME, CONF_PASSWORD
-from homeassistant.core import HomeAssistant
+from homeassistant.const import CONF_NAME, CONF_HOST, CONF_USERNAME, CONF_PASSWORD, EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import HomeAssistant, CoreState
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import generate_entity_id
@@ -110,9 +110,16 @@ class DockerContainerSensor(SensorEntity):
             name=self._name,
         )
 
-    async def async_update(self) -> None:
+    async def async_update(self, _=None) -> None:
         """Fetch the latest state from the remote docker host."""
-        options = self.entry.options
+        if self.hass.state != CoreState.running:
+            # Delay the first update until Home Assistant is fully started so startup is not blocked by SSH calls
+            self.hass.bus.async_listen_once(
+                EVENT_HOMEASSISTANT_STARTED, self.async_update
+            )
+            return
+
+        options = dict(self.entry.options)
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
         service = self._service
         host = options.get(CONF_HOST, "")
@@ -195,6 +202,7 @@ class DockerContainerSensor(SensorEntity):
 
         if update_available and options.get(CONF_AUTO_UPDATE, False):
             await self._auto_recreate(options, service, docker_create_available)
+        self.async_write_ha_state()
 
     def set_transitional_state(self, state: str) -> None:
         """Set a transitional state and write it to HA immediately."""
