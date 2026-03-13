@@ -44,10 +44,15 @@ class SshDockerPanel extends HTMLElement {
     this._filter = "all";
     this._hostFilter = "all";
     this._narrow = false;
+    this._lastSnapshot = null;
   }
 
   set hass(hass) {
     this._hass = hass;
+    // Only re-render when SSH Docker entity states/attributes actually changed.
+    const snapshot = this._sshDockerSnapshot(hass);
+    if (snapshot === this._lastSnapshot) return;
+    this._lastSnapshot = snapshot;
     this._render();
   }
 
@@ -65,7 +70,32 @@ class SshDockerPanel extends HTMLElement {
   }
 
   connectedCallback() {
+    // Re-render when the browser tab regains focus (handles blank panel after tab switch).
+    this._visibilityHandler = () => {
+      if (document.visibilityState === "visible" && this._hass) {
+        this._lastSnapshot = null; // force re-render
+        this._render();
+      }
+    };
+    document.addEventListener("visibilitychange", this._visibilityHandler);
     this._render();
+  }
+
+  disconnectedCallback() {
+    if (this._visibilityHandler) {
+      document.removeEventListener("visibilitychange", this._visibilityHandler);
+      this._visibilityHandler = null;
+    }
+  }
+
+  // Returns a compact string snapshot of all SSH Docker sensor states + attributes.
+  // Used to skip re-renders when no Docker-domain entity changed.
+  _sshDockerSnapshot(hass) {
+    if (!hass) return "";
+    return Object.entries(hass.states)
+      .filter(([id]) => id.startsWith("sensor.ssh_docker_"))
+      .map(([id, e]) => `${id}=${e.state}|${JSON.stringify(e.attributes)}`)
+      .join(";");
   }
 
   _t(key) {
