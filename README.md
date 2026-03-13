@@ -25,7 +25,7 @@ A Home Assistant custom component that monitors and controls Docker containers o
 
 ### Prerequisites
 
-This integration depends on the [SSH Command](https://github.com/gensyn/ssh_command) integration. Install it first:
+This integration depends on the [SSH Command](https://github.com/gensyn/ssh_command) integration. It should be automatically installed when installing SSH Docker through HACS or you can install it first manually:
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=gensyn&repository=ssh_command&category=integration)
 
@@ -33,11 +33,10 @@ This integration depends on the [SSH Command](https://github.com/gensyn/ssh_comm
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=gensyn&repository=ssh_docker&category=integration)
 
-1. Ensure **SSH Command** is already installed (see above)
-2. Click the badge above or search for **SSH Docker** in HACS
-3. Click **Download**
-4. Restart Home Assistant
-5. Add the integration via `Settings > Devices & Services > Add Integration`
+1. Click the badge above or search for **SSH Docker** in HACS
+2. Click **Download**
+3. Restart Home Assistant
+4. Add the integration via `Settings > Devices & Services > Add Integration`
 
 ### Manual Installation
 
