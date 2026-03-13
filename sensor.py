@@ -120,7 +120,14 @@ class DockerContainerSensor(SensorEntity):
             # Each sensor registers a one-shot listener but adds a small deterministic stagger (derived from the
             # entry_id) so that all sensors don't fire their initial SSH calls simultaneously.
             # abs() guards against negative hash values on some platforms.
-            stagger_secs = abs(hash(self.entry.entry_id)) % 60
+            # Use the number of entries for the same host as the modulo divisor so that there is roughly one second
+            # of stagger per sensor, and a single sensor never waits unnecessarily long.
+            _host = self.entry.options.get(CONF_HOST, "")
+            _same_host_count = sum(
+                1 for e in self.hass.config_entries.async_entries(DOMAIN)
+                if e.options.get(CONF_HOST, "") == _host
+            )
+            stagger_secs = abs(hash(self.entry.entry_id)) % max(_same_host_count, 1)
 
             async def _staggered_update(_event=None):
                 # HA is now in CoreState.running (event only fires after that), so

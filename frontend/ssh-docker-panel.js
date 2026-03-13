@@ -64,6 +64,10 @@ class SshDockerPanel extends HTMLElement {
     this._panel = panel;
   }
 
+  connectedCallback() {
+    this._render();
+  }
+
   _t(key) {
     const lang = (this._hass && this._hass.locale && this._hass.locale.language) || "en";
     const strings = SSH_DOCKER_PANEL_TRANSLATIONS[lang] || SSH_DOCKER_PANEL_TRANSLATIONS.en;
