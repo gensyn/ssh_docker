@@ -86,7 +86,7 @@ class SshDockerCard extends HTMLElement {
           justify-content: space-between;
           align-items: center;
           padding: 12px 16px;
-          font-size: 1rem;
+          font-size: 1.1rem;
           font-weight: 600;
           border-bottom: 1px solid rgba(0,0,0,0.1);
           background: ${this._stateColor(state)};
@@ -106,7 +106,7 @@ class SshDockerCard extends HTMLElement {
           padding: 10px 16px 14px;
         }
         table { width: 100%; border-collapse: collapse; }
-        td { padding: 4px 0; font-size: 0.875em; color: var(--primary-text-color); }
+        td { padding: 4px 0; font-size: 1em; color: var(--primary-text-color); }
         td:last-child { text-align: right; color: var(--secondary-text-color); }
         .update-badge {
           background: #e67e22;

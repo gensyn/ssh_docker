@@ -258,7 +258,7 @@ class SshDockerPanel extends HTMLElement {
         }
         .host-title {
           margin: 0 0 12px 0;
-          font-size: 1.1rem;
+          font-size: 1.2rem;
           color: var(--secondary-text-color, #727272);
           border-bottom: 1px solid var(--divider-color, #e0e0e0);
           padding-bottom: 6px;
@@ -282,7 +282,7 @@ class SshDockerPanel extends HTMLElement {
           color: white;
         }
         .container-name {
-          font-size: 1rem;
+          font-size: 1.1rem;
           font-weight: 600;
           flex: 1;
           overflow: hidden;
@@ -302,7 +302,7 @@ class SshDockerPanel extends HTMLElement {
           padding: 8px 16px 12px;
         }
         table { width: 100%; border-collapse: collapse; }
-        td { padding: 4px 0; font-size: 0.875rem; color: var(--primary-text-color, #212121); }
+        td { padding: 4px 0; font-size: 1rem; color: var(--primary-text-color, #212121); }
         td:last-child {
           text-align: right;
           color: var(--secondary-text-color, #727272);
