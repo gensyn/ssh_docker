@@ -1,5 +1,42 @@
 // SSH Docker Panel – sidebar panel that lists all docker containers grouped by host.
 
+const SSH_DOCKER_PANEL_TRANSLATIONS = {
+  en: {
+    unknown_host: "Unknown Host",
+    all_states: "All states",
+    updates_filter: "⬆ updates",
+    all_hosts: "All Hosts",
+    no_containers: "No Docker containers found.",
+    created_label: "Created",
+    update_available: "⬆ Update available",
+    btn_update: "⬆ Update",
+    btn_recreate: "✚ Recreate",
+    btn_create: "✚ Create",
+    btn_restart: "↺ Restart",
+    btn_start: "▶ Start",
+    btn_stop: "■ Stop",
+    btn_remove: "🗑 Remove",
+    btn_refresh: "↻ Refresh",
+  },
+  de: {
+    unknown_host: "Unbekannter Host",
+    all_states: "Alle Zustände",
+    updates_filter: "⬆ Updates",
+    all_hosts: "Alle Hosts",
+    no_containers: "Keine Docker-Container gefunden.",
+    created_label: "Erstellt",
+    update_available: "⬆ Update verfügbar",
+    btn_update: "⬆ Update",
+    btn_recreate: "✚ Neu erstellen",
+    btn_create: "✚ Erstellen",
+    btn_restart: "↺ Neustart",
+    btn_start: "▶ Starten",
+    btn_stop: "■ Stoppen",
+    btn_remove: "🗑 Entfernen",
+    btn_refresh: "↻ Aktualisieren",
+  },
+};
+
 class SshDockerPanel extends HTMLElement {
   constructor() {
     super();
@@ -27,8 +64,14 @@ class SshDockerPanel extends HTMLElement {
     this._panel = panel;
   }
 
+  _t(key) {
+    const lang = (this._hass && this._hass.locale && this._hass.locale.language) || "en";
+    const strings = SSH_DOCKER_PANEL_TRANSLATIONS[lang] || SSH_DOCKER_PANEL_TRANSLATIONS.en;
+    return strings[key] || SSH_DOCKER_PANEL_TRANSLATIONS.en[key] || key;
+  }
+
   _getContainerHost(entity) {
-    return entity.attributes && entity.attributes.host ? entity.attributes.host : "Unknown Host";
+    return entity.attributes && entity.attributes.host ? entity.attributes.host : this._t("unknown_host");
   }
 
   _getAllContainers() {
@@ -101,7 +144,7 @@ class SshDockerPanel extends HTMLElement {
     const image = attrs.image || "-";
     const created = attrs.created ? attrs.created.slice(0, 10) : "-";
     const updateBadge = attrs.update_available
-      ? `<span class="update-badge">⬆ Update available</span>`
+      ? `<span class="update-badge">${this._t("update_available")}</span>`
       : "";
     const entityId = entity.entity_id;
 
@@ -109,8 +152,8 @@ class SshDockerPanel extends HTMLElement {
     // Create/Recreate: only if docker_create is available; label changes based on container state.
     const showCreate   = attrs.docker_create_available === true;
     const createLabel  = state !== "unavailable"
-      ? (attrs.update_available && state === "running" ? "⬆ Update" : "✚ Recreate")
-      : "✚ Create";
+      ? (attrs.update_available && state === "running" ? this._t("btn_update") : this._t("btn_recreate"))
+      : this._t("btn_create");
     // Start/Restart: show for running (Restart) or stopped states (Start).
     const stoppedStates = ["exited", "created", "dead", "paused"];
     const showRestart  = state === "running";
@@ -120,11 +163,11 @@ class SshDockerPanel extends HTMLElement {
 
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
-      showRestart ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">↺ Restart</button>` : "",
-      showStart   ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">▶ Start</button>`   : "",
-      showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">■ Stop</button>`    : "",
-      showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">🗑 Remove</button>`  : "",
-      `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">↻ Refresh</button>`,
+      showRestart ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">${this._t("btn_restart")}</button>` : "",
+      showStart   ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">${this._t("btn_start")}</button>`   : "",
+      showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">${this._t("btn_stop")}</button>`    : "",
+      showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">${this._t("btn_remove")}</button>`  : "",
+      `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>`,
     ].filter(Boolean).join("");
 
     return `
@@ -136,7 +179,7 @@ class SshDockerPanel extends HTMLElement {
         <div class="container-card-content">
           <table>
             <tr><td>Image</td><td class="image-cell">${image}</td></tr>
-            <tr><td>Created</td><td>${created}</td></tr>
+            <tr><td>${this._t("created_label")}</td><td>${created}</td></tr>
             ${attrs.update_available ? `<tr><td colspan="2">${updateBadge}</td></tr>` : ""}
           </table>
           ${actionButtons ? `<div class="action-buttons">${actionButtons}</div>` : ""}
@@ -171,14 +214,14 @@ class SshDockerPanel extends HTMLElement {
     ).length;
 
     const filterKeys = ["all", ...states, "update_available"];
-    const filterLabels = { update_available: "⬆ updates" };
+    const filterLabels = { update_available: this._t("updates_filter") };
     const filterButtons = filterKeys
       .filter((f) => f === "all" || counts[f] > 0)
       .map(
         (f) =>
           `<button class="filter-btn${this._filter === f ? " active" : ""}"
                    data-filter="${f}">
-            ${filterLabels[f] || (f === "all" ? "All states" : f)} (${counts[f]})
+            ${filterLabels[f] || (f === "all" ? this._t("all_states") : f)} (${counts[f]})
            </button>`
       )
       .join("");
@@ -201,7 +244,7 @@ class SshDockerPanel extends HTMLElement {
           (h) =>
             `<button class="filter-btn host-filter-btn${this._hostFilter === h ? " active" : ""}"
                      data-host="${h}">
-              ${h === "all" ? "All Hosts" : h} (${hostCounts[h]})
+              ${h === "all" ? this._t("all_hosts") : h} (${hostCounts[h]})
              </button>`
         )
         .join("");
@@ -212,7 +255,7 @@ class SshDockerPanel extends HTMLElement {
     let hostsHtml = "";
 
     if (Object.keys(groups).length === 0) {
-      hostsHtml = `<p class="no-containers">No Docker containers found.</p>`;
+      hostsHtml = `<p class="no-containers">${this._t("no_containers")}</p>`;
     } else {
       for (const [host, hostContainers] of Object.entries(groups)) {
         const cards = hostContainers

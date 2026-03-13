@@ -1,4 +1,34 @@
 // SSH Docker Card – Lovelace card for a single Docker container sensor.
+
+const SSH_DOCKER_CARD_TRANSLATIONS = {
+  en: {
+    host_label: "Host",
+    created_label: "Created",
+    update_available: "⬆ Update available",
+    btn_update: "⬆ Update",
+    btn_recreate: "✚ Recreate",
+    btn_create: "✚ Create",
+    btn_restart: "↺ Restart",
+    btn_start: "▶ Start",
+    btn_stop: "■ Stop",
+    btn_remove: "🗑 Remove",
+    btn_refresh: "↻ Refresh",
+  },
+  de: {
+    host_label: "Host",
+    created_label: "Erstellt",
+    update_available: "⬆ Update verfügbar",
+    btn_update: "⬆ Update",
+    btn_recreate: "✚ Neu erstellen",
+    btn_create: "✚ Erstellen",
+    btn_restart: "↺ Neustart",
+    btn_start: "▶ Starten",
+    btn_stop: "■ Stoppen",
+    btn_remove: "🗑 Entfernen",
+    btn_refresh: "↻ Aktualisieren",
+  },
+};
+
 class SshDockerCard extends HTMLElement {
   constructor() {
     super();
@@ -16,6 +46,12 @@ class SshDockerCard extends HTMLElement {
       throw new Error("You need to define an entity");
     }
     this.config = config;
+  }
+
+  _t(key) {
+    const lang = (this._hass && this._hass.locale && this._hass.locale.language) || "en";
+    const strings = SSH_DOCKER_CARD_TRANSLATIONS[lang] || SSH_DOCKER_CARD_TRANSLATIONS.en;
+    return strings[key] || SSH_DOCKER_CARD_TRANSLATIONS.en[key] || key;
   }
 
   _stateColor(state) {
@@ -54,14 +90,14 @@ class SshDockerCard extends HTMLElement {
     const created = attrs.created ? attrs.created.slice(0, 10) : "-";
     const host = attrs.host || "-";
     const updateBadge = attrs.update_available
-      ? `<span class="update-badge">⬆ Update available</span>`
+      ? `<span class="update-badge">${this._t("update_available")}</span>`
       : "";
 
     // Conditional button visibility — same logic as the panel.
     const showCreate   = attrs.docker_create_available === true;
     const createLabel  = state !== "unavailable"
-      ? (attrs.update_available && state === "running" ? "⬆ Update" : "✚ Recreate")
-      : "✚ Create";
+      ? (attrs.update_available && state === "running" ? this._t("btn_update") : this._t("btn_recreate"))
+      : this._t("btn_create");
     const stoppedStates = ["exited", "created", "dead", "paused"];
     const showRestart  = state === "running";
     const showStart    = stoppedStates.includes(state);
@@ -70,11 +106,11 @@ class SshDockerCard extends HTMLElement {
 
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
-      showRestart ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">↺ Restart</button>` : "",
-      showStart   ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">▶ Start</button>`   : "",
-      showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">■ Stop</button>`    : "",
-      showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">🗑 Remove</button>`  : "",
-      `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">↻ Refresh</button>`,
+      showRestart ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">${this._t("btn_restart")}</button>` : "",
+      showStart   ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">${this._t("btn_start")}</button>`   : "",
+      showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">${this._t("btn_stop")}</button>`    : "",
+      showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">${this._t("btn_remove")}</button>`  : "",
+      `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>`,
     ].filter(Boolean).join("");
 
     this.shadowRoot.innerHTML = `
@@ -150,9 +186,9 @@ class SshDockerCard extends HTMLElement {
         </div>
         <div class="card-content">
           <table>
-            <tr><td>Host</td><td>${host}</td></tr>
+            <tr><td>${this._t("host_label")}</td><td>${host}</td></tr>
             <tr><td>Image</td><td class="image">${image}</td></tr>
-            <tr><td>Created</td><td>${created}</td></tr>
+            <tr><td>${this._t("created_label")}</td><td>${created}</td></tr>
             ${attrs.update_available ? `<tr><td colspan="2">${updateBadge}</td></tr>` : ""}
           </table>
           <div class="action-buttons">${actionButtons}</div>
