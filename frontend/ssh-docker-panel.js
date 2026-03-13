@@ -178,7 +178,7 @@ class SshDockerPanel extends HTMLElement {
         (f) =>
           `<button class="filter-btn${this._filter === f ? " active" : ""}"
                    data-filter="${f}">
-            ${filterLabels[f] || (f === "all" ? "All" : f)} (${counts[f]})
+            ${filterLabels[f] || (f === "all" ? "All states" : f)} (${counts[f]})
            </button>`
       )
       .join("");
