@@ -117,8 +117,21 @@ class DockerContainerSensor(SensorEntity):
         """Fetch the latest state from the remote docker host."""
         if self.hass.state != CoreState.running:
             # Delay the first update until Home Assistant is fully started so startup is not blocked by SSH calls.
+            # Each sensor registers a one-shot listener but adds a small deterministic stagger (derived from the
+            # entry_id) so that all sensors don't fire their initial SSH calls simultaneously.
+            # abs() guards against negative hash values on some platforms.
+            stagger_secs = abs(hash(self.entry.entry_id)) % 60
+
+            async def _staggered_update(_event=None):
+                # HA is now in CoreState.running (event only fires after that), so
+                # the recursive call below will NOT re-register a listener; it will
+                # proceed directly to the SSH logic.
+                if stagger_secs > 0:
+                    await asyncio.sleep(stagger_secs)
+                await self.async_update()
+
             self.hass.bus.async_listen_once(
-                EVENT_HOMEASSISTANT_STARTED, self.async_update
+                EVENT_HOMEASSISTANT_STARTED, _staggered_update
             )
             return
 
