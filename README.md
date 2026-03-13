@@ -31,11 +31,11 @@ SSH Docker works with any Home Assistant installation that supports custom compo
 
 The remote host where your containers run **must be a Linux system**. SSH Docker issues standard Linux shell commands over SSH (e.g. `docker inspect`, `docker ps`, `docker restart`, `command -v …`) and relies on a POSIX shell environment. Non-Linux SSH targets (e.g. native Windows Server, macOS without a Linux VM) are not supported.
 
-Tested and expected to work with:
+Expected to work with:
 
 - Any Linux distribution with a working SSH server (OpenSSH or compatible)
 - Docker CE / EE
-- [Podman](https://podman.io/) (set **Docker command** to `podman` or `sudo podman`)
+- [Podman](https://podman.io/) (set **Docker command** to `podman` or `sudo podman`) - **untested**
 - Any other Docker-compatible CLI that accepts the same `ps`, `inspect`, `pull`, `restart`, `stop`, and `rm` subcommands
 
 ### SSH
@@ -298,9 +298,9 @@ docker ps -a --format '{{.Names}}' | python3 -c "import sys, json; print(json.du
 
 SSH Docker uses **per-host semaphores** to cap concurrent SSH connections to a maximum of **3 per host**. This prevents overloading the remote SSH server when many containers are configured on the same host, avoiding `Connection lost` errors that would otherwise occur when many sensors update simultaneously.
 
-### Startup Stagger
+### Startup Deferral
 
-When Home Assistant starts, each sensor defers its first SSH update until after the `homeassistant_started` event. To avoid a burst of simultaneous connections, each entry waits a deterministic delay of **0–59 seconds** (derived from the entry ID) before its first SSH call. This spreads the initial load across approximately one minute, even with dozens of containers configured on the same host.
+When Home Assistant starts, each sensor defers its first SSH update until after the `homeassistant_started` event.
 
 ### `docker_create` Availability Cache
 
