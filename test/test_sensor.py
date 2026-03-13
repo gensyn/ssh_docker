@@ -84,7 +84,7 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sensor._attr_native_value, STATE_UNAVAILABLE)
         self.assertEqual(
             sensor._attr_extra_state_attributes,
-            {"host": "192.168.1.100", "docker_create_available": False},
+            {"name": "my_container", "host": "192.168.1.100", "docker_create_available": False},
         )
 
     async def test_update_sets_unavailable_on_exception(self):
