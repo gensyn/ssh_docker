@@ -102,7 +102,7 @@ class DockerContainerSensor(SensorEntity):
             "sensor.ssh_docker_{}", slugify(self._name), hass=hass
         )
         self._attr_native_value = STATE_UNAVAILABLE
-        self._attr_extra_state_attributes: dict[str, Any] = {}
+        self._attr_extra_state_attributes: dict[str, Any] = {"name": self._name}
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             manufacturer="SSH Docker",
@@ -185,6 +185,7 @@ class DockerContainerSensor(SensorEntity):
         )
         self._attr_native_value = container_state
         self._attr_extra_state_attributes = {
+            "name": self._name,
             CONF_CREATED: created,
             CONF_IMAGE: image_name,
             CONF_UPDATE_AVAILABLE: update_available,

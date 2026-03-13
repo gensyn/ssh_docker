@@ -49,7 +49,7 @@ class SshDockerCard extends HTMLElement {
     const entity = this._hass.states[entityId];
     const attrs = (entity && entity.attributes) || {};
     const state = (entity && entity.state) || "unavailable";
-    const name = attrs.friendly_name || entityId;
+    const name = attrs.name || entityId;
     const image = attrs.image || "-";
     const created = attrs.created ? attrs.created.slice(0, 10) : "-";
     const host = attrs.host || "-";
