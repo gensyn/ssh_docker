@@ -21,6 +21,29 @@ A Home Assistant custom component that monitors and controls Docker containers o
 
 ---
 
+## 🖥️ Compatibility
+
+### Home Assistant
+
+SSH Docker works with any Home Assistant installation that supports custom components (Core, Supervised, OS, Container). No specific minimum version is enforced beyond what the underlying `ssh_command` dependency requires.
+
+### Remote Host (Docker Host)
+
+The remote host where your containers run **must be a Linux system**. SSH Docker issues standard Linux shell commands over SSH (e.g. `docker inspect`, `docker ps`, `docker restart`, `command -v …`) and relies on a POSIX shell environment. Non-Linux SSH targets (e.g. native Windows Server, macOS without a Linux VM) are not supported.
+
+Tested and expected to work with:
+
+- Any Linux distribution with a working SSH server (OpenSSH or compatible)
+- Docker CE / EE
+- [Podman](https://podman.io/) (set **Docker command** to `podman` or `sudo podman`)
+- Any other Docker-compatible CLI that accepts the same `ps`, `inspect`, `pull`, `restart`, `stop`, and `rm` subcommands
+
+### SSH
+
+An SSH server (e.g. OpenSSH `sshd`) must be running and reachable on the remote host. Authentication via password or SSH private key is supported.
+
+---
+
 ## 🚀 Installation
 
 ### Prerequisites
