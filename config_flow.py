@@ -13,7 +13,8 @@ from homeassistant.core import HomeAssistant, callback
 
 from .const import (
     DOMAIN, CONF_SERVICE, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
-    CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS,
+    CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES,
+    DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS,
     DOCKER_SERVICES_EXECUTABLE, DEFAULT_TIMEOUT,
@@ -33,6 +34,8 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_CHECK_KNOWN_HOSTS, default=DEFAULT_CHECK_KNOWN_HOSTS): bool,
         vol.Optional(CONF_KNOWN_HOSTS): str,
         vol.Optional(CONF_DOCKER_COMMAND, default=DEFAULT_DOCKER_COMMAND): str,
+        vol.Optional(CONF_CHECK_FOR_UPDATES, default=DEFAULT_CHECK_FOR_UPDATES): bool,
+        vol.Optional(CONF_AUTO_UPDATE, default=DEFAULT_AUTO_UPDATE): bool,
     }
 )
 
@@ -144,6 +147,14 @@ def _build_user_schema(defaults: dict[str, Any]) -> vol.Schema:
                 CONF_DOCKER_COMMAND,
                 default=defaults.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND),
             ): str,
+            vol.Optional(
+                CONF_CHECK_FOR_UPDATES,
+                default=defaults.get(CONF_CHECK_FOR_UPDATES, DEFAULT_CHECK_FOR_UPDATES),
+            ): bool,
+            vol.Optional(
+                CONF_AUTO_UPDATE,
+                default=defaults.get(CONF_AUTO_UPDATE, DEFAULT_AUTO_UPDATE),
+            ): bool,
         }
     )
 
