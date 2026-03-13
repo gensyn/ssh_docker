@@ -14,6 +14,7 @@ sys.path.insert(0, absolute_plugin_path)
 from ssh_docker.sensor import DockerContainerSensor, STATE_UNAVAILABLE  # noqa: E402
 from ssh_docker.const import (  # noqa: E402
     CONF_UPDATE_AVAILABLE, CONF_CREATED, CONF_IMAGE, CONF_AUTO_UPDATE,
+    CONF_CHECK_FOR_UPDATES, DEFAULT_TIMEOUT,
 )
 from homeassistant.config_entries import ConfigEntry  # noqa: E402
 
@@ -99,10 +100,18 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
 
     async def test_update_detects_newer_image(self):
         """Test that a different image ID is detected as an available update."""
-        sensor = _make_sensor()
+        sensor = _make_sensor(options={
+            "host": "192.168.1.100",
+            "username": "user",
+            "password": "pass",
+            "docker_command": "docker",
+            "check_known_hosts": True,
+            "auto_update": False,
+            CONF_CHECK_FOR_UPDATES: True,
+        })
         call_count = 0
 
-        async def mock_ssh_run(hass, options, command):
+        async def mock_ssh_run(hass, options, command, timeout=DEFAULT_TIMEOUT):
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -141,11 +150,12 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
             "docker_command": "docker",
             "check_known_hosts": True,
             CONF_AUTO_UPDATE: True,
+            CONF_CHECK_FOR_UPDATES: True,
         }
         sensor = _make_sensor(options=options)
         call_count = 0
 
-        async def mock_ssh_run(hass, opts, command):
+        async def mock_ssh_run(hass, opts, command, timeout=DEFAULT_TIMEOUT):
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -175,11 +185,12 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
             "docker_command": "docker",
             "check_known_hosts": True,
             CONF_AUTO_UPDATE: True,
+            CONF_CHECK_FOR_UPDATES: True,
         }
         sensor = _make_sensor(options=options)
         call_count = 0
 
-        async def mock_ssh_run(hass, opts, command):
+        async def mock_ssh_run(hass, opts, command, timeout=DEFAULT_TIMEOUT):
             nonlocal call_count
             call_count += 1
             if call_count == 1:
