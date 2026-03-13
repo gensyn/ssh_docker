@@ -6,6 +6,8 @@ CONF_TIMEOUT = "timeout"
 CONF_ERROR = "error"
 CONF_NAME = "name"
 
+EVENT_HOMEASSISTANT_STARTED = "homeassistant_started"
+
 
 class Platform:
     """Mock Platform enum."""

@@ -1,3 +1,11 @@
+class CoreState:
+    """Mock CoreState enum."""
+
+    running = "running"
+    starting = "starting"
+    not_running = "not_running"
+
+
 class HomeAssistant:
     """Mock HomeAssistant class."""
 
@@ -6,6 +14,7 @@ class HomeAssistant:
         self.services = None
         self.data = {}
         self.config_entries = None
+        self.state = CoreState.running
 
 
 class ServiceCall:

@@ -13,3 +13,6 @@ class SensorEntity:
         """Initialize the sensor entity."""
         self.hass = None
         self.entity_id = None
+
+    def async_write_ha_state(self):
+        """Mock write HA state - no-op in tests."""

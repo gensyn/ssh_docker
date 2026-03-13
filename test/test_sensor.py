@@ -36,6 +36,7 @@ def _make_sensor(container_name="my_container", options=None):
         options=options,
     )
     mock_hass = MagicMock()
+    mock_hass.state = "running"  # CoreState.running == "running"
     sensor = DockerContainerSensor(entry, mock_hass)
     sensor.hass = mock_hass
     return sensor
