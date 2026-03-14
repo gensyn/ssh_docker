@@ -16,3 +16,6 @@ class SensorEntity:
 
     def async_write_ha_state(self):
         """Mock write HA state - no-op in tests."""
+
+    def async_schedule_update_ha_state(self, force_refresh: bool = False):
+        """Mock schedule HA state update - no-op in tests."""

@@ -231,6 +231,7 @@ class DockerContainerSensor(SensorEntity):
 
         if update_available and options.get(CONF_AUTO_UPDATE, False):
             await self._auto_recreate(options, service, docker_create_available)
+            self.async_schedule_update_ha_state(force_refresh=True)
 
     def set_transitional_state(self, state: str) -> None:
         """Set a transitional state and write it to HA immediately."""
@@ -284,7 +285,7 @@ class DockerContainerSensor(SensorEntity):
             _, exit_status = await _ssh_run(self.hass, options, create_cmd)
             if exit_status != 0:
                 _LOGGER.warning("Auto-update: docker_create failed for %s", name)
-            else:
-                _LOGGER.info("Auto-update: recreated container %s", name)
+                return
+            _LOGGER.info("Auto-update: recreated container %s", name)
         except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
             _LOGGER.warning("Auto-update failed for %s: %s", name, err)

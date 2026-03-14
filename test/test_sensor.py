@@ -171,11 +171,48 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
             # docker_create execution
             return "", 0
 
-        with patch("ssh_docker.sensor._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.sensor._ssh_run", mock_ssh_run), \
+             patch.object(sensor, "async_schedule_update_ha_state") as mock_schedule:
             await sensor.async_update()
 
         self.assertEqual(call_count, 4)
-        self.assertTrue(sensor._attr_extra_state_attributes[CONF_UPDATE_AVAILABLE])
+        # A full entity refresh must always be scheduled after auto-recreate
+        mock_schedule.assert_called_once_with(force_refresh=True)
+
+    async def test_auto_update_schedules_refresh_when_recreate_fails(self):
+        """Test that a full entity refresh is scheduled even when docker_create exits non-zero."""
+        options = {
+            "host": "192.168.1.100",
+            "username": "user",
+            "password": "pass",
+            "docker_command": "docker",
+            "check_known_hosts": True,
+            CONF_AUTO_UPDATE: True,
+            CONF_CHECK_FOR_UPDATES: True,
+        }
+        sensor = _make_sensor(options=options)
+        call_count = 0
+
+        async def mock_ssh_run(hass, opts, command, timeout=DEFAULT_TIMEOUT):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return "running;2023-01-01T00:00:00Z;nginx:latest;sha256:old123", 0
+            if call_count == 2:
+                return "sha256:new456", 0
+            if call_count == 3:
+                # docker_create found
+                return "found", 0
+            # docker_create execution fails
+            return "", 1
+
+        with patch("ssh_docker.sensor._ssh_run", mock_ssh_run), \
+             patch.object(sensor, "async_schedule_update_ha_state") as mock_schedule:
+            await sensor.async_update()
+
+        self.assertEqual(call_count, 4)
+        # Refresh must still be scheduled even when recreation fails
+        mock_schedule.assert_called_once_with(force_refresh=True)
 
     async def test_auto_update_skips_when_docker_create_missing(self):
         """Test that auto-update logs a warning when docker_create is not found."""
