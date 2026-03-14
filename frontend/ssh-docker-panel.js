@@ -79,6 +79,33 @@ class SshDockerPanel extends HTMLElement {
       }
     };
     document.addEventListener("visibilitychange", this._visibilityHandler);
+
+    // Handle page restore from browser BFCache (back/forward cache) or tab un-suspension.
+    // Firefox fires pageshow with event.persisted=true when a frozen page is restored.
+    this._pageshowHandler = (e) => {
+      if (e.persisted && this._hass) {
+        this._lastSnapshot = null;
+        this._render();
+      }
+    };
+    window.addEventListener("pageshow", this._pageshowHandler);
+
+    // Last-resort fallback: if the shadow DOM is empty when the window regains focus,
+    // force a re-render. This covers Linux WMs / Firefox builds where visibilitychange
+    // or pageshow may not fire reliably for browser-tab switches.
+    this._focusHandler = () => {
+      if (this._hass && !this.shadowRoot.querySelector(".content")) {
+        this._lastSnapshot = null;
+        this._render();
+      }
+    };
+    window.addEventListener("focus", this._focusHandler);
+
+    // If hass is already set (panel re-attached by HA router navigation), force a fresh
+    // render instead of relying on the snapshot diff which may incorrectly skip it.
+    if (this._hass) {
+      this._lastSnapshot = null;
+    }
     this._render();
   }
 
@@ -86,6 +113,14 @@ class SshDockerPanel extends HTMLElement {
     if (this._visibilityHandler) {
       document.removeEventListener("visibilitychange", this._visibilityHandler);
       this._visibilityHandler = null;
+    }
+    if (this._pageshowHandler) {
+      window.removeEventListener("pageshow", this._pageshowHandler);
+      this._pageshowHandler = null;
+    }
+    if (this._focusHandler) {
+      window.removeEventListener("focus", this._focusHandler);
+      this._focusHandler = null;
     }
   }
 
