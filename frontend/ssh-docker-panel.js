@@ -451,7 +451,7 @@ class SshDockerPanel extends HTMLElement {
           text-align: right;
           color: var(--secondary-text-color, #727272);
         }
-        .image-cell { font-family: monospace; font-size: 0.8em; }
+        .image-cell { font-family: monospace; font-size: 0.8em; word-break: break-all; overflow-wrap: break-word; }
         .update-badge {
           background: #e67e22;
           color: white;
