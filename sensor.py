@@ -230,9 +230,8 @@ class DockerContainerSensor(SensorEntity):
         }
 
         if update_available and options.get(CONF_AUTO_UPDATE, False):
-            recreated = await self._auto_recreate(options, service, docker_create_available)
-            if recreated:
-                self.async_schedule_update_ha_state(force_refresh=True)
+            await self._auto_recreate(options, service, docker_create_available)
+            self.async_schedule_update_ha_state(force_refresh=True)
 
     def set_transitional_state(self, state: str) -> None:
         """Set a transitional state and write it to HA immediately."""
@@ -270,16 +269,13 @@ class DockerContainerSensor(SensorEntity):
 
     async def _auto_recreate(
             self, options: dict[str, Any], name: str, docker_create_available: bool = False
-    ) -> bool:
-        """Recreate the container using docker_create if available.
-
-        Returns True if the container was successfully recreated, False otherwise.
-        """
+    ) -> None:
+        """Recreate the container using docker_create if available."""
         if not docker_create_available:
             _LOGGER.warning(
                 "Auto-update: docker_create not found on host for container %s", name
             )
-            return False
+            return
         create_cmd = (
             f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1"
             f" && {DOCKER_CREATE_EXECUTABLE} {name}"
@@ -289,9 +285,7 @@ class DockerContainerSensor(SensorEntity):
             _, exit_status = await _ssh_run(self.hass, options, create_cmd)
             if exit_status != 0:
                 _LOGGER.warning("Auto-update: docker_create failed for %s", name)
-                return False
+                return
             _LOGGER.info("Auto-update: recreated container %s", name)
-            return True
         except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
             _LOGGER.warning("Auto-update failed for %s: %s", name, err)
-            return False

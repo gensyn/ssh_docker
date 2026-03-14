@@ -176,11 +176,11 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
             await sensor.async_update()
 
         self.assertEqual(call_count, 4)
-        # After successful recreation a full entity refresh must be scheduled
+        # A full entity refresh must always be scheduled after auto-recreate
         mock_schedule.assert_called_once_with(force_refresh=True)
 
-    async def test_auto_update_badge_stays_when_recreate_fails(self):
-        """Test that update_available stays True when docker_create exits non-zero."""
+    async def test_auto_update_schedules_refresh_when_recreate_fails(self):
+        """Test that a full entity refresh is scheduled even when docker_create exits non-zero."""
         options = {
             "host": "192.168.1.100",
             "username": "user",
@@ -211,10 +211,8 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
             await sensor.async_update()
 
         self.assertEqual(call_count, 4)
-        # Recreation failed – badge must remain so the user sees the update
-        self.assertTrue(sensor._attr_extra_state_attributes[CONF_UPDATE_AVAILABLE])
-        # No refresh scheduled when recreation fails
-        mock_schedule.assert_not_called()
+        # Refresh must still be scheduled even when recreation fails
+        mock_schedule.assert_called_once_with(force_refresh=True)
 
     async def test_auto_update_skips_when_docker_create_missing(self):
         """Test that auto-update logs a warning when docker_create is not found."""
