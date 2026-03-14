@@ -232,7 +232,7 @@ class DockerContainerSensor(SensorEntity):
         if update_available and options.get(CONF_AUTO_UPDATE, False):
             recreated = await self._auto_recreate(options, service, docker_create_available)
             if recreated:
-                self._attr_extra_state_attributes[CONF_UPDATE_AVAILABLE] = False
+                self.async_schedule_update_ha_state(force_refresh=True)
 
     def set_transitional_state(self, state: str) -> None:
         """Set a transitional state and write it to HA immediately."""

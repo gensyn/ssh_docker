@@ -171,12 +171,13 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
             # docker_create execution
             return "", 0
 
-        with patch("ssh_docker.sensor._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.sensor._ssh_run", mock_ssh_run), \
+             patch.object(sensor, "async_schedule_update_ha_state") as mock_schedule:
             await sensor.async_update()
 
         self.assertEqual(call_count, 4)
-        # After successful recreation the badge must be cleared
-        self.assertFalse(sensor._attr_extra_state_attributes[CONF_UPDATE_AVAILABLE])
+        # After successful recreation a full entity refresh must be scheduled
+        mock_schedule.assert_called_once_with(force_refresh=True)
 
     async def test_auto_update_badge_stays_when_recreate_fails(self):
         """Test that update_available stays True when docker_create exits non-zero."""
@@ -205,12 +206,15 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
             # docker_create execution fails
             return "", 1
 
-        with patch("ssh_docker.sensor._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.sensor._ssh_run", mock_ssh_run), \
+             patch.object(sensor, "async_schedule_update_ha_state") as mock_schedule:
             await sensor.async_update()
 
         self.assertEqual(call_count, 4)
         # Recreation failed – badge must remain so the user sees the update
         self.assertTrue(sensor._attr_extra_state_attributes[CONF_UPDATE_AVAILABLE])
+        # No refresh scheduled when recreation fails
+        mock_schedule.assert_not_called()
 
     async def test_auto_update_skips_when_docker_create_missing(self):
         """Test that auto-update logs a warning when docker_create is not found."""
