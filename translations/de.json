@@ -127,6 +127,7 @@
           "removing": "Wird entfernt",
           "creating": "Wird erstellt",
           "initializing": "Wird initialisiert",
+          "recreating": "Wird neu erstellt",
           "dead": "Abgestürzt",
           "unavailable": "Nicht verfügbar",
           "refreshing": "Wird aktualisiert"

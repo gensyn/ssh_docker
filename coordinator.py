@@ -289,6 +289,7 @@ class SshDockerCoordinator:
         if update_available and options.get(CONF_AUTO_UPDATE, False) and not self._in_auto_update:
             self._in_auto_update = True
             try:
+                self.set_pending_state("recreating")
                 await self._auto_recreate(options, service, docker_create_available)
                 await self.async_request_refresh()
             finally:

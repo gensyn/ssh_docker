@@ -127,6 +127,7 @@
           "removing": "Removing",
           "creating": "Creating",
           "initializing": "Initializing",
+          "recreating": "Recreating",
           "dead": "Dead",
           "unavailable": "Unavailable",
           "refreshing": "Refreshing"
