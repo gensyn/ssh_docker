@@ -102,7 +102,7 @@ class SshDockerCard extends HTMLElement {
     const showRestart  = state === "running";
     const showStart    = stoppedStates.includes(state);
     const showStop     = state === "running";
-    const showRemove   = state !== "unavailable";
+    const showRemove   = state !== "unavailable" && state !== "unknown";
 
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
