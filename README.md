@@ -13,6 +13,7 @@ A Home Assistant custom component that monitors and controls Docker containers o
 - 🐳 **Docker Container Monitoring** — Track the state, image, and creation date of containers on remote hosts
 - 🔄 **Auto-Update Detection** — Automatically detects when a newer image is available upstream
 - 🤖 **Auto-Update** — Optionally recreate containers when a newer image is detected
+- 🔔 **HA Update Entities** — Containers with available image updates appear natively in Home Assistant's **Settings → Updates** panel and can be installed from there with one click
 - 🔍 **Automatic Discovery** — Discovers all containers on a host and offers to add them to Home Assistant
 - 🎛️ **Full Container Control** — Create, start, restart, stop, and remove containers from within Home Assistant
 - 📊 **Sidebar Panel** — Auto-registered dashboard listing all containers grouped by host with filtering
@@ -138,6 +139,26 @@ The sensor is updated every **24 hours** by default, or on demand via the **Refr
 | `created` | Container creation timestamp |
 | `update_available` | `true` when a newer upstream image is available (only set when `check_for_updates` is enabled) |
 | `docker_create_available` | `true` when the `docker_create` executable is present on the remote host |
+
+---
+
+## 🔔 Update Entity
+
+When **Check for updates** is enabled for a container entry, SSH Docker also creates an **update** entity named `update.ssh_docker_<name>` for each configured container. This entity integrates with Home Assistant's native update mechanism so that pending image updates are surfaced in **Settings → Updates** alongside other HA and add-on updates.
+
+### How it works
+
+- After each sensor poll the update entity is automatically refreshed. When a newer upstream image is detected (`update_available: true`) the entity state becomes **on** (update available).
+- When no update is pending, or the container is unreachable, the entity state is **off**.
+- The update entity is linked to the same **device** as the container sensor, so both appear together in the device detail page.
+
+### Installing an update from the UI
+
+Navigate to **Settings → Updates** in Home Assistant. Containers with a pending image update are listed there. Click the container's update card and then **Install** to trigger a container recreation using the `docker_create` executable on the remote host — exactly the same operation as clicking **⬆ Update** in the sidebar panel.
+
+> **Requires** the `docker_create` executable to be present on the remote host. See [Custom Executables](#%EF%B8%8F-custom-executables) for details.
+
+While the installation is running the entity reports `in_progress: true` and the update card shows a progress indicator. Once completed the sensor is refreshed automatically to reflect the new container state.
 
 ---
 
