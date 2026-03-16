@@ -100,7 +100,7 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         _LOGGER.debug("Service 'restart' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         coordinator = _get_coordinator(hass, entry)
-        coordinator.set_pending_state("restarting")
+        coordinator.set_pending_state("starting")
         try:
             await coordinator.restart()
         finally:

@@ -122,6 +122,11 @@
           "created": "Erstellt",
           "paused": "Pausiert",
           "restarting": "Wird neu gestartet",
+          "starting": "Wird gestartet",
+          "stopping": "Wird gestoppt",
+          "removing": "Wird entfernt",
+          "creating": "Wird erstellt",
+          "initializing": "Wird initialisiert",
           "dead": "Abgestürzt",
           "unavailable": "Nicht verfügbar",
           "refreshing": "Wird aktualisiert"

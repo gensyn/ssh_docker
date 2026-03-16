@@ -159,6 +159,7 @@ class SshDockerPanel extends HTMLElement {
       case "exited":     return "#e74c3c";
       case "paused":     return "#f39c12";
       case "restarting": return "#3498db";
+      case "starting":   return "#1abc9c";
       case "dead":       return "#8e44ad";
       case "created":    return "#16a085";
       case "removing":   return "#c0392b";
@@ -182,7 +183,7 @@ class SshDockerPanel extends HTMLElement {
 
     // Conditional button visibility per the requirements.
     // Create/Recreate: only if docker_create is available; label changes based on container state.
-    const transitionalStates = ["creating", "restarting", "stopping", "removing", "refreshing"];
+    const transitionalStates = ["creating", "initializing", "restarting", "starting", "stopping", "removing", "refreshing"];
     const isTransitional = transitionalStates.includes(state);
     const showCreate   = !isTransitional && attrs.docker_create_available === true;
     const createLabel  = state !== "unavailable"
@@ -194,7 +195,7 @@ class SshDockerPanel extends HTMLElement {
     const showStart    = !isTransitional && stoppedStates.includes(state);
     const showStop     = !isTransitional && state === "running";
     const showRemove   = !isTransitional && state !== "unavailable" && state !== "unknown";
-    const showRefresh  = state !== "refreshing";
+    const showRefresh  = state !== "initializing";
 
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
@@ -234,7 +235,7 @@ class SshDockerPanel extends HTMLElement {
     const stateFiltered = this._getStateFilteredContainers();
     const filteredContainers = this._getFilteredContainers();
 
-    const states = ["running", "exited", "paused", "restarting", "dead", "unavailable", "refreshing"];
+    const states = ["running", "exited", "paused", "restarting", "starting", "dead", "created", "removing", "stopping", "creating", "initializing", "unavailable", "refreshing"];
     const counts = { all: allContainers.length };
     for (const s of states) {
       counts[s] = allContainers.filter((c) => c.state === s).length;

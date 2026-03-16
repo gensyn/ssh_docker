@@ -113,6 +113,7 @@ class SshDockerCoordinator:
         self._name: str = entry.data[CONF_NAME]
         self._service: str = entry.data.get(CONF_SERVICE, self._name)
         self._pending_state: str | None = None
+        self._in_auto_update: bool = False
         _host = entry.options.get(CONF_HOST, "")
         self.data: dict[str, Any] = {
             "state": STATE_UNKNOWN,
@@ -285,8 +286,13 @@ class SshDockerCoordinator:
             "latest_image_id": new_image_id,
         }
 
-        if update_available and options.get(CONF_AUTO_UPDATE, False):
-            await self._auto_recreate(options, service, docker_create_available)
+        if update_available and options.get(CONF_AUTO_UPDATE, False) and not self._in_auto_update:
+            self._in_auto_update = True
+            try:
+                await self._auto_recreate(options, service, docker_create_available)
+                await self.async_request_refresh()
+            finally:
+                self._in_auto_update = False
 
     # ------------------------------------------------------------------
     # Action methods (called by services and update entity install)
