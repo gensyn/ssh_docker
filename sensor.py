@@ -31,6 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(hours=24)
 
 STATE_UNAVAILABLE = "unavailable"
+STATE_UNKNOWN = "unknown"
 
 # Cache docker_create availability per host to avoid redundant SSH calls when
 # many sensors share the same remote host.  TTL matches the sensor scan interval.
@@ -103,7 +104,7 @@ class DockerContainerSensor(SensorEntity):
         self.entity_id = generate_entity_id(
             "sensor.ssh_docker_{}", slugify(self._name), hass=hass
         )
-        self._attr_native_value = STATE_UNAVAILABLE
+        self._attr_native_value = STATE_UNKNOWN
         _host = entry.options.get(CONF_HOST, "")
         self._attr_extra_state_attributes: dict[str, Any] = {"name": self._name, "host": _host}
         self._attr_device_info = DeviceInfo(
