@@ -440,7 +440,6 @@ class SshDockerPanel extends HTMLElement {
           border-radius: 12px;
           font-size: 0.78em;
           flex-shrink: 0;
-          text-transform: capitalize;
         }
         .container-card-content {
           padding: 8px 16px 12px;

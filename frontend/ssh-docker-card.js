@@ -108,7 +108,6 @@ class SshDockerCard extends HTMLElement {
           border-radius: 12px;
           font-size: 0.78em;
           background: rgba(255,255,255,0.3);
-          text-transform: capitalize;
           flex-shrink: 0;
         }
         .card-content {
