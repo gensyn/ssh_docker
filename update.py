@@ -25,6 +25,12 @@ from .sensor import _ssh_run
 _LOGGER = logging.getLogger(__name__)
 
 
+def _short_id(image_id: str) -> str:
+    """Return a short (12-char) Docker image ID, stripping the ``sha256:`` prefix."""
+    hex_part = image_id.removeprefix("sha256:")
+    return hex_part[:12] if len(hex_part) >= 12 else hex_part
+
+
 async def async_setup_entry(
         hass: HomeAssistant,
         entry: ConfigEntry,
@@ -68,18 +74,26 @@ class DockerContainerUpdateEntity(UpdateEntity):
             name=self._name,
         )
 
-    def set_update_state(self, update_available: bool, image_name: str | None) -> None:
+    def set_update_state(
+            self,
+            update_available: bool,
+            installed_image_id: str | None,
+            latest_image_id: str | None = None,
+    ) -> None:
         """Update the entity state based on sensor data.
 
         Called by DockerContainerSensor after each successful poll.
         ``update_available=True`` sets latest_version to a value different from
         installed_version so HA reports the entity state as ON (update available).
+        Both versions are shown as short (12-char) Docker image IDs.
         """
-        if image_name:
-            self._attr_installed_version = image_name
-            self._attr_latest_version = (
-                f"{image_name} (update available)" if update_available else image_name
-            )
+        if installed_image_id:
+            installed_short = _short_id(installed_image_id)
+            self._attr_installed_version = installed_short
+            if update_available and latest_image_id:
+                self._attr_latest_version = _short_id(latest_image_id)
+            else:
+                self._attr_latest_version = installed_short
         else:
             # Container unreachable — reset versions so state is unknown
             self._attr_installed_version = None

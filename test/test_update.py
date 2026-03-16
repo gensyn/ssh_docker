@@ -51,23 +51,23 @@ class TestDockerContainerUpdateEntity(unittest.TestCase):
     def test_set_update_state_no_update(self):
         """When update_available=False the installed and latest version should match."""
         entity = _make_update_entity()
-        entity.set_update_state(False, "nginx:latest")
-        self.assertEqual(entity._attr_installed_version, "nginx:latest")
-        self.assertEqual(entity._attr_latest_version, "nginx:latest")
+        entity.set_update_state(False, "sha256:abc123456789def0", None)
+        self.assertEqual(entity._attr_installed_version, "abc123456789")
+        self.assertEqual(entity._attr_latest_version, "abc123456789")
 
     def test_set_update_state_update_available(self):
         """When update_available=True the latest version should differ from installed."""
         entity = _make_update_entity()
-        entity.set_update_state(True, "nginx:latest")
-        self.assertEqual(entity._attr_installed_version, "nginx:latest")
+        entity.set_update_state(True, "sha256:abc123456789def0", "sha256:def456789012abc0")
+        self.assertEqual(entity._attr_installed_version, "abc123456789")
+        self.assertEqual(entity._attr_latest_version, "def456789012")
         self.assertNotEqual(entity._attr_latest_version, entity._attr_installed_version)
-        self.assertIn("nginx:latest", entity._attr_latest_version)
 
     def test_set_update_state_unavailable_clears_versions(self):
-        """When the container is unreachable (image_name=None) both versions become None."""
+        """When the container is unreachable (installed_image_id=None) both versions become None."""
         entity = _make_update_entity()
         # First mark an update as available...
-        entity.set_update_state(True, "nginx:latest")
+        entity.set_update_state(True, "sha256:abc123456789def0", "sha256:def456789012abc0")
         # ...then mark the container as unreachable
         entity.set_update_state(False, None)
         self.assertIsNone(entity._attr_installed_version)
@@ -98,7 +98,7 @@ class TestDockerContainerUpdateEntity(unittest.TestCase):
         """set_update_state should call async_write_ha_state."""
         entity = _make_update_entity()
         with patch.object(entity, "async_write_ha_state") as mock_write:
-            entity.set_update_state(True, "nginx:latest")
+            entity.set_update_state(True, "sha256:abc123456789def0", "sha256:def456789012abc0")
         mock_write.assert_called_once()
 
 

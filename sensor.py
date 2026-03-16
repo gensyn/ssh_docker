@@ -133,11 +133,16 @@ class DockerContainerSensor(SensorEntity):
         else:
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _staggered_update)
 
-    def _notify_update_entity(self, update_available: bool, image_name: str | None) -> None:
+    def _notify_update_entity(
+            self,
+            update_available: bool,
+            installed_image_id: str | None,
+            latest_image_id: str | None = None,
+    ) -> None:
         """Push update-availability state to the companion update entity, if present."""
         update_entity = self.hass.data.get(DOMAIN, {}).get(f"{self.entry.entry_id}_update")
         if update_entity is not None:
-            update_entity.set_update_state(update_available, image_name)
+            update_entity.set_update_state(update_available, installed_image_id, latest_image_id)
 
     async def async_update(self) -> None:
         """Fetch the latest state from the remote docker host."""
@@ -198,6 +203,7 @@ class DockerContainerSensor(SensorEntity):
         container_state, created, image_name, old_image_id = parts
 
         update_available = False
+        new_image_id: str | None = None
         if options.get(CONF_CHECK_FOR_UPDATES, False):
             pull_cmd = (
                 f"{docker_cmd} pull {image_name} > /dev/null 2>&1;"
@@ -232,7 +238,7 @@ class DockerContainerSensor(SensorEntity):
         }
 
         # Notify the companion update entity so HA's Updates panel stays in sync.
-        self._notify_update_entity(update_available, image_name)
+        self._notify_update_entity(update_available, old_image_id.strip(), new_image_id)
 
         if update_available and options.get(CONF_AUTO_UPDATE, False):
             await self._auto_recreate(options, service, docker_create_available)
