@@ -4,39 +4,24 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from datetime import timedelta
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME, CONF_HOST, CONF_USERNAME, CONF_PASSWORD, EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import CONF_NAME, CONF_HOST, EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant, CoreState
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
-from .const import (
-    DOMAIN, CONF_SERVICE, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
-    CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES, CONF_UPDATE_AVAILABLE,
-    CONF_CREATED, CONF_IMAGE, SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
-    SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS, DEFAULT_DOCKER_COMMAND,
-    DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT, DOCKER_CREATE_EXECUTABLE,
-    DOCKER_PULL_TIMEOUT, get_ssh_semaphore,
-)
+
+from .const import DOMAIN, CONF_SERVICE
+from .coordinator import SshDockerCoordinator, STATE_UNKNOWN
 
 _LOGGER = logging.getLogger(__name__)
 
 SCAN_INTERVAL = timedelta(hours=24)
-
-STATE_UNAVAILABLE = "unavailable"
-STATE_UNKNOWN = "unknown"
-
-# Cache docker_create availability per host to avoid redundant SSH calls when
-# many sensors share the same remote host.  TTL matches the sensor scan interval.
-_DOCKER_CREATE_CACHE: dict[str, tuple[bool, float]] = {}
-_DOCKER_CREATE_CACHE_TTL = SCAN_INTERVAL.total_seconds()
 
 
 async def async_setup_entry(
@@ -45,55 +30,31 @@ async def async_setup_entry(
         async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up SSH Docker sensor platform from a config entry."""
-    sensor = DockerContainerSensor(entry, hass)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = sensor
+    coordinator: SshDockerCoordinator = hass.data[DOMAIN][entry.entry_id]
+    sensor = DockerContainerSensor(coordinator, entry, hass)
     async_add_entities([sensor])
 
 
-async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[
-    str, int]:
-    """Run a command via the ssh_command service. Returns (stdout, exit_status).
-
-    Concurrent executions to the same remote host are limited by a per-host
-    semaphore (see get_ssh_semaphore in const.py).
-    """
-    service_data: dict[str, Any] = {
-        CONF_HOST: options[CONF_HOST],
-        CONF_USERNAME: options[CONF_USERNAME],
-        "check_known_hosts": options.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
-        "command": command,
-        "timeout": timeout,
-    }
-    if options.get(CONF_PASSWORD):
-        service_data[CONF_PASSWORD] = options[CONF_PASSWORD]
-    if options.get(CONF_KEY_FILE):
-        service_data["key_file"] = options[CONF_KEY_FILE]
-    if options.get(CONF_KNOWN_HOSTS):
-        service_data["known_hosts"] = options[CONF_KNOWN_HOSTS]
-
-    async with get_ssh_semaphore(options[CONF_HOST]):
-        response = await hass.services.async_call(
-            SSH_COMMAND_DOMAIN,
-            SSH_COMMAND_SERVICE_EXECUTE,
-            service_data,
-            blocking=True,
-            return_response=True,
-        )
-    output = (response or {}).get(SSH_CONF_OUTPUT, "").strip()
-    exit_status = (response or {}).get(SSH_CONF_EXIT_STATUS, 1)
-    return output, exit_status
-
-
 class DockerContainerSensor(SensorEntity):
-    """Sensor representing a Docker container on a remote host."""
+    """Sensor representing a Docker container on a remote host.
+
+    All I/O is delegated to the ``SshDockerCoordinator``; this class only
+    reflects the coordinator's state in the HA entity model.
+    """
 
     _attr_has_entity_name = True
     _attr_translation_key = "state"
     _attr_should_poll = True
 
-    def __init__(self, entry: ConfigEntry, hass: HomeAssistant) -> None:
+    def __init__(
+        self,
+        coordinator: SshDockerCoordinator,
+        entry: ConfigEntry,
+        hass: HomeAssistant,
+    ) -> None:
         """Initialize the sensor."""
         super().__init__()
+        self.coordinator = coordinator
         self.entry = entry
         self.hass = hass
         self._name = entry.data[CONF_NAME]
@@ -104,9 +65,6 @@ class DockerContainerSensor(SensorEntity):
         self.entity_id = generate_entity_id(
             "sensor.ssh_docker_{}", slugify(self._name), hass=hass
         )
-        self._attr_native_value = STATE_UNKNOWN
-        _host = entry.options.get(CONF_HOST, "")
-        self._attr_extra_state_attributes: dict[str, Any] = {"name": self._name, "host": _host}
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             manufacturer="SSH Docker",
@@ -114,9 +72,28 @@ class DockerContainerSensor(SensorEntity):
             name=self._name,
         )
 
+    @property
+    def native_value(self) -> str:
+        """Return current state, preferring coordinator's pending state when set."""
+        return self.coordinator._pending_state or self.coordinator.data.get(
+            "state", STATE_UNKNOWN
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return state attributes sourced from the coordinator."""
+        return self.coordinator.data.get("attributes", {})
+
     async def async_added_to_hass(self) -> None:
-        """Schedule the first update, deferring until HA has fully started if needed."""
+        """Register coordinator listener and schedule the first refresh."""
         await super().async_added_to_hass()
+
+        # When coordinator data changes (including pending state transitions),
+        # push the new state to HA immediately without waiting for the next poll.
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
+
         _host = self.entry.options.get(CONF_HOST, "")
         _same_host_count = sum(
             1 for e in self.hass.config_entries.async_entries(DOMAIN)
@@ -134,170 +111,6 @@ class DockerContainerSensor(SensorEntity):
         else:
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _staggered_update)
 
-    def _notify_update_entity(
-            self,
-            update_available: bool,
-            installed_image_id: str | None,
-            latest_image_id: str | None = None,
-    ) -> None:
-        """Push update-availability state to the companion update entity, if present."""
-        update_entity = self.hass.data.get(DOMAIN, {}).get(f"{self.entry.entry_id}_update")
-        if update_entity is not None:
-            update_entity.set_update_state(update_available, installed_image_id, latest_image_id)
-
     async def async_update(self) -> None:
-        """Fetch the latest state from the remote docker host."""
-        options = dict(self.entry.options)
-        docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
-        service = self._service
-        host = options.get(CONF_HOST, "")
-        _LOGGER.debug("Updating sensor for container %s", service)
-
-        info_cmd = (
-            f"{docker_cmd} inspect {service}"
-            f" --format '{{{{.State.Status}}}};{{{{.Created}}}};{{{{.Config.Image}}}};{{{{.Image}}}}'"
-        )
-        try:
-            output, exit_status = await _ssh_run(self.hass, options, info_cmd)
-        except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
-            _LOGGER.warning("Failed to inspect container %s: %s", service, err)
-            self._attr_native_value = STATE_UNAVAILABLE
-            self._attr_extra_state_attributes = {
-                "name": self._name,
-                "host": host,
-                "docker_create_available": False
-            }
-            self._notify_update_entity(False, None)
-            return
-
-        if exit_status != 0 or not output:
-            _LOGGER.debug(
-                "Container %s not found or docker inspect returned no output (exit status %d)",
-                service,
-                exit_status,
-            )
-            docker_create_available = await self._check_docker_create_available(options)
-            self._attr_native_value = STATE_UNAVAILABLE
-            self._attr_extra_state_attributes = {
-                "name": self._name,
-                "host": host,
-                "docker_create_available": docker_create_available,
-            }
-            self._notify_update_entity(False, None)
-            return
-
-        parts = output.split(";", 3)
-        if len(parts) < 4:
-            _LOGGER.warning(
-                "Unexpected docker inspect output format for container %s: %r", service, output
-            )
-            docker_create_available = await self._check_docker_create_available(options)
-            self._attr_native_value = STATE_UNAVAILABLE
-            self._attr_extra_state_attributes = {
-                "name": self._name,
-                "host": host,
-                "docker_create_available": docker_create_available,
-            }
-            self._notify_update_entity(False, None)
-            return
-
-        container_state, created, image_name, old_image_id = parts
-
-        update_available = False
-        new_image_id: str | None = None
-        if options.get(CONF_CHECK_FOR_UPDATES, False):
-            pull_cmd = (
-                f"{docker_cmd} pull {image_name} > /dev/null 2>&1;"
-                f" {docker_cmd} image inspect {image_name} --format '{{{{.Id}}}}'"
-            )
-            try:
-                new_image_id, _ = await _ssh_run(self.hass, options, pull_cmd, timeout=DOCKER_PULL_TIMEOUT)
-                update_available = bool(new_image_id) and new_image_id != old_image_id.strip()
-                if update_available:
-                    _LOGGER.info(
-                        "Update available for container %s: image %s has a newer version",
-                        service,
-                        image_name,
-                    )
-            except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
-                _LOGGER.debug("Could not check for image updates for %s: %s", service, err)
-
-        # Check docker_create availability (for the panel Create button).
-        docker_create_available = await self._check_docker_create_available(options)
-
-        _LOGGER.debug(
-            "Container %s state: %s, update_available: %s", service, container_state, update_available
-        )
-        self._attr_native_value = container_state
-        self._attr_extra_state_attributes = {
-            "name": self._name,
-            CONF_CREATED: created,
-            CONF_IMAGE: image_name,
-            CONF_UPDATE_AVAILABLE: update_available,
-            "host": host,
-            "docker_create_available": docker_create_available,
-        }
-
-        # Notify the companion update entity so HA's Updates panel stays in sync.
-        self._notify_update_entity(update_available, old_image_id.strip(), new_image_id)
-
-        if update_available and options.get(CONF_AUTO_UPDATE, False):
-            await self._auto_recreate(options, service, docker_create_available)
-            self.async_schedule_update_ha_state(force_refresh=True)
-
-    def set_transitional_state(self, state: str) -> None:
-        """Set a transitional state and write it to HA immediately."""
-        _LOGGER.debug("Container %s entering transitional state: %s", self._name, state)
-        self._attr_native_value = state
-        self.async_write_ha_state()
-
-    async def _check_docker_create_available(self, options: dict[str, Any]) -> bool:
-        """Return True if the docker_create executable is present on the remote host.
-
-        Results are cached per host for the duration of the scan interval so that
-        sensors sharing a host only incur one SSH round-trip per poll cycle.
-        """
-        host = options.get(CONF_HOST, "")
-        now = time.monotonic()
-        cached = _DOCKER_CREATE_CACHE.get(host)
-        if cached is not None:
-            result, ts = cached
-            if now - ts < _DOCKER_CREATE_CACHE_TTL:
-                return result
-
-        check_cmd = (
-            f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1 && echo found"
-            f" || (test -f /usr/bin/{DOCKER_CREATE_EXECUTABLE} && echo found || echo not_found)"
-        )
-        try:
-            output, _ = await _ssh_run(self.hass, options, check_cmd)
-            result = output.strip() == "found"
-        except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
-            _LOGGER.debug("Could not check for docker_create on host: %s", err)
-            result = False
-
-        _DOCKER_CREATE_CACHE[host] = (result, now)
-        return result
-
-    async def _auto_recreate(
-            self, options: dict[str, Any], name: str, docker_create_available: bool = False
-    ) -> None:
-        """Recreate the container using docker_create if available."""
-        if not docker_create_available:
-            _LOGGER.warning(
-                "Auto-update: docker_create not found on host for container %s", name
-            )
-            return
-        create_cmd = (
-            f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1"
-            f" && {DOCKER_CREATE_EXECUTABLE} {name}"
-            f" || /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}"
-        )
-        try:
-            _, exit_status = await _ssh_run(self.hass, options, create_cmd)
-            if exit_status != 0:
-                _LOGGER.warning("Auto-update: docker_create failed for %s", name)
-                return
-            _LOGGER.info("Auto-update: recreated container %s", name)
-        except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
-            _LOGGER.warning("Auto-update failed for %s: %s", name, err)
+        """Delegate data fetching to the coordinator."""
+        await self.coordinator.async_request_refresh()
