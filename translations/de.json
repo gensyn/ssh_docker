@@ -132,6 +132,24 @@
       "update": {
         "name": "Update"
       }
+    },
+    "ui": {
+      "host_label": { "name": "Host" },
+      "created_label": { "name": "Erstellt" },
+      "update_available": { "name": "⬆ Update verfügbar" },
+      "btn_update": { "name": "⬆ Update" },
+      "btn_recreate": { "name": "✚ Neu erstellen" },
+      "btn_create": { "name": "✚ Erstellen" },
+      "btn_restart": { "name": "↺ Neustart" },
+      "btn_start": { "name": "▶ Starten" },
+      "btn_stop": { "name": "■ Stoppen" },
+      "btn_remove": { "name": "🗑 Entfernen" },
+      "btn_refresh": { "name": "↻ Aktualisieren" },
+      "unknown_host": { "name": "Unbekannter Host" },
+      "all_states": { "name": "Alle Zustände" },
+      "updates_filter": { "name": "⬆ Updates" },
+      "all_hosts": { "name": "Alle Hosts" },
+      "no_containers": { "name": "Keine Docker-Container gefunden." }
     }
   },
   "exceptions": {

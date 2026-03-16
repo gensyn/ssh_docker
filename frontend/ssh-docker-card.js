@@ -1,34 +1,5 @@
 // SSH Docker Card – Lovelace card for a single Docker container sensor.
 
-const SSH_DOCKER_CARD_TRANSLATIONS = {
-  en: {
-    host_label: "Host",
-    created_label: "Created",
-    update_available: "⬆ Update available",
-    btn_update: "⬆ Update",
-    btn_recreate: "✚ Recreate",
-    btn_create: "✚ Create",
-    btn_restart: "↺ Restart",
-    btn_start: "▶ Start",
-    btn_stop: "■ Stop",
-    btn_remove: "🗑 Remove",
-    btn_refresh: "↻ Refresh",
-  },
-  de: {
-    host_label: "Host",
-    created_label: "Erstellt",
-    update_available: "⬆ Update verfügbar",
-    btn_update: "⬆ Update",
-    btn_recreate: "✚ Neu erstellen",
-    btn_create: "✚ Erstellen",
-    btn_restart: "↺ Neustart",
-    btn_start: "▶ Starten",
-    btn_stop: "■ Stoppen",
-    btn_remove: "🗑 Entfernen",
-    btn_refresh: "↻ Aktualisieren",
-  },
-};
-
 class SshDockerCard extends HTMLElement {
   constructor() {
     super();
@@ -49,9 +20,7 @@ class SshDockerCard extends HTMLElement {
   }
 
   _t(key) {
-    const lang = (this._hass && this._hass.locale && this._hass.locale.language) || "en";
-    const strings = SSH_DOCKER_CARD_TRANSLATIONS[lang] || SSH_DOCKER_CARD_TRANSLATIONS.en;
-    return strings[key] || SSH_DOCKER_CARD_TRANSLATIONS.en[key] || key;
+    return (this._hass && this._hass.localize(`component.ssh_docker.entity.ui.${key}.name`)) || key;
   }
 
   _stateColor(state) {

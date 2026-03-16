@@ -1,42 +1,5 @@
 // SSH Docker Panel – sidebar panel that lists all docker containers grouped by host.
 
-const SSH_DOCKER_PANEL_TRANSLATIONS = {
-  en: {
-    unknown_host: "Unknown Host",
-    all_states: "All states",
-    updates_filter: "⬆ updates",
-    all_hosts: "All Hosts",
-    no_containers: "No Docker containers found.",
-    created_label: "Created",
-    update_available: "⬆ Update available",
-    btn_update: "⬆ Update",
-    btn_recreate: "✚ Recreate",
-    btn_create: "✚ Create",
-    btn_restart: "↺ Restart",
-    btn_start: "▶ Start",
-    btn_stop: "■ Stop",
-    btn_remove: "🗑 Remove",
-    btn_refresh: "↻ Refresh",
-  },
-  de: {
-    unknown_host: "Unbekannter Host",
-    all_states: "Alle Zustände",
-    updates_filter: "⬆ Updates",
-    all_hosts: "Alle Hosts",
-    no_containers: "Keine Docker-Container gefunden.",
-    created_label: "Erstellt",
-    update_available: "⬆ Update verfügbar",
-    btn_update: "⬆ Update",
-    btn_recreate: "✚ Neu erstellen",
-    btn_create: "✚ Erstellen",
-    btn_restart: "↺ Neustart",
-    btn_start: "▶ Starten",
-    btn_stop: "■ Stoppen",
-    btn_remove: "🗑 Entfernen",
-    btn_refresh: "↻ Aktualisieren",
-  },
-};
-
 class SshDockerPanel extends HTMLElement {
   constructor() {
     super();
@@ -135,9 +98,7 @@ class SshDockerPanel extends HTMLElement {
   }
 
   _t(key) {
-    const lang = (this._hass && this._hass.locale && this._hass.locale.language) || "en";
-    const strings = SSH_DOCKER_PANEL_TRANSLATIONS[lang] || SSH_DOCKER_PANEL_TRANSLATIONS.en;
-    return strings[key] || SSH_DOCKER_PANEL_TRANSLATIONS.en[key] || key;
+    return (this._hass && this._hass.localize(`component.ssh_docker.entity.ui.${key}.name`)) || key;
   }
 
   _getContainerHost(entity) {

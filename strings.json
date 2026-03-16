@@ -132,6 +132,24 @@
       "update": {
         "name": "Update"
       }
+    },
+    "ui": {
+      "host_label": { "name": "Host" },
+      "created_label": { "name": "Created" },
+      "update_available": { "name": "⬆ Update available" },
+      "btn_update": { "name": "⬆ Update" },
+      "btn_recreate": { "name": "✚ Recreate" },
+      "btn_create": { "name": "✚ Create" },
+      "btn_restart": { "name": "↺ Restart" },
+      "btn_start": { "name": "▶ Start" },
+      "btn_stop": { "name": "■ Stop" },
+      "btn_remove": { "name": "🗑 Remove" },
+      "btn_refresh": { "name": "↻ Refresh" },
+      "unknown_host": { "name": "Unknown Host" },
+      "all_states": { "name": "All states" },
+      "updates_filter": { "name": "⬆ updates" },
+      "all_hosts": { "name": "All Hosts" },
+      "no_containers": { "name": "No Docker containers found." }
     }
   },
   "exceptions": {
