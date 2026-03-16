@@ -10,30 +10,6 @@ create:
         entity:
           domain: sensor
 
-recreate:
-  name: Recreate Docker Container
-  description: Recreates (or updates) a docker container using the docker_create executable on the remote host.
-  fields:
-    entity_id:
-      name: Entity ID
-      description: The entity ID of the docker container sensor.
-      required: true
-      selector:
-        entity:
-          domain: sensor
-
-start:
-  name: Start Docker Container
-  description: Starts a stopped docker container on the remote host.
-  fields:
-    entity_id:
-      name: Entity ID
-      description: The entity ID of the docker container sensor.
-      required: true
-      selector:
-        entity:
-          domain: sensor
-
 restart:
   name: Restart Docker Container
   description: Restarts a docker container on the remote host.

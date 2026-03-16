@@ -319,27 +319,6 @@ class SshDockerCoordinator:
             )
         _LOGGER.info("Coordinator: successfully restarted container %s", name)
 
-    async def start(self) -> None:
-        """Start a stopped container."""
-        options = dict(self.entry.options)
-        docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
-        name = self._service
-        _, exit_status = await _ssh_run(
-            self.hass, options, f"{docker_cmd} start {name}"
-        )
-        if exit_status != 0:
-            _LOGGER.error(
-                "Coordinator start failed for container %s (exit status %d)",
-                name,
-                exit_status,
-            )
-            raise ServiceValidationError(
-                f"Failed to start container {name}",
-                translation_domain=DOMAIN,
-                translation_key="docker_command_failed",
-            )
-        _LOGGER.info("Coordinator: successfully started container %s", name)
-
     async def stop(self) -> None:
         """Stop the container."""
         options = dict(self.entry.options)

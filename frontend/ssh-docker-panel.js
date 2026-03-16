@@ -165,7 +165,6 @@ class SshDockerPanel extends HTMLElement {
       case "removing":   return "#c0392b";
       case "stopping":   return "#e67e22";
       case "creating":   return "#2980b9";
-      case "recreating": return "#5b2c6f";
       case "refreshing": return "#7f8c8d";
       default:           return "#95a5a6";
     }
@@ -184,11 +183,9 @@ class SshDockerPanel extends HTMLElement {
 
     // Conditional button visibility per the requirements.
     // Create/Recreate: only if docker_create is available; label changes based on container state.
-    const transitionalStates = ["creating", "recreating", "starting", "initializing", "restarting", "stopping", "removing", "refreshing"];
+    const transitionalStates = ["creating", "initializing", "restarting", "starting", "stopping", "removing", "refreshing"];
     const isTransitional = transitionalStates.includes(state);
-    const docker_create_available = attrs.docker_create_available === true;
-    const showCreate   = !isTransitional && docker_create_available;
-    const createAction = (docker_create_available && state !== "unavailable") ? "recreate" : "create";
+    const showCreate   = !isTransitional && attrs.docker_create_available === true;
     const createLabel  = state !== "unavailable"
       ? (attrs.update_available && state === "running" ? this._t("btn_update") : this._t("btn_recreate"))
       : this._t("btn_create");
@@ -201,9 +198,9 @@ class SshDockerPanel extends HTMLElement {
     const showRefresh  = state !== "refreshing" && state !== "initializing";
 
     const actionButtons = [
-      showCreate  ? `<button class="action-btn create-btn"  data-action="${createAction}"  data-entity="${entityId}">${createLabel}</button>` : "",
+      showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
       showRestart ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">${this._t("btn_restart")}</button>` : "",
-      showStart   ? `<button class="action-btn restart-btn" data-action="start"   data-entity="${entityId}">${this._t("btn_start")}</button>`   : "",
+      showStart   ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">${this._t("btn_start")}</button>`   : "",
       showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">${this._t("btn_stop")}</button>`    : "",
       showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">${this._t("btn_remove")}</button>`  : "",
       showRefresh ? `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>` : "",
@@ -238,7 +235,7 @@ class SshDockerPanel extends HTMLElement {
     const stateFiltered = this._getStateFilteredContainers();
     const filteredContainers = this._getFilteredContainers();
 
-    const states = ["running", "exited", "paused", "restarting", "starting", "dead", "created", "removing", "stopping", "creating", "recreating", "initializing", "unavailable", "refreshing"];
+    const states = ["running", "exited", "paused", "restarting", "starting", "dead", "created", "removing", "stopping", "creating", "initializing", "unavailable", "refreshing"];
     const counts = { all: allContainers.length };
     for (const s of states) {
       counts[s] = allContainers.filter((c) => c.state === s).length;

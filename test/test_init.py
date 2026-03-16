@@ -13,8 +13,7 @@ sys.path.insert(0, absolute_plugin_path)
 
 from ssh_docker import async_setup  # noqa: E402
 from ssh_docker.const import (  # noqa: E402
-    DOMAIN, SERVICE_CREATE, SERVICE_RECREATE, SERVICE_START, SERVICE_RESTART,
-    SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
+    DOMAIN, SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
 )
 from ssh_docker.frontend import SshDockerPanelRegistration  # noqa: E402
 
@@ -34,12 +33,10 @@ class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(result)
         registered_calls = mock_hass.services.async_register.call_args_list
-        self.assertEqual(len(registered_calls), 7)
+        self.assertEqual(len(registered_calls), 5)
 
         service_names = [call.args[1] for call in registered_calls]
         self.assertIn(SERVICE_CREATE, service_names)
-        self.assertIn(SERVICE_RECREATE, service_names)
-        self.assertIn(SERVICE_START, service_names)
         self.assertIn(SERVICE_RESTART, service_names)
         self.assertIn(SERVICE_STOP, service_names)
         self.assertIn(SERVICE_REMOVE, service_names)

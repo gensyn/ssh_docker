@@ -17,8 +17,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import (
     DOMAIN, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES, CONF_SERVICE,
-    SERVICE_CREATE, SERVICE_RECREATE, SERVICE_START, SERVICE_RESTART,
-    SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
+    SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
     DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
     DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     DOCKER_SERVICES_EXECUTABLE,
@@ -95,39 +94,15 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         finally:
             await coordinator.async_request_refresh()
 
-    async def async_recreate(service_call: ServiceCall) -> None:
-        """Recreate (or update) a docker container using the docker_create executable."""
-        entity_id = service_call.data["entity_id"]
-        _LOGGER.debug("Service 'recreate' called for entity %s", entity_id)
-        entry = _get_entry_for_entity(hass, entity_id)
-        coordinator = _get_coordinator(hass, entry)
-        coordinator.set_pending_state("recreating")
-        try:
-            await coordinator.create()
-        finally:
-            await coordinator.async_request_refresh()
-
     async def async_restart(service_call: ServiceCall) -> None:
         """Restart a docker container."""
         entity_id = service_call.data["entity_id"]
         _LOGGER.debug("Service 'restart' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         coordinator = _get_coordinator(hass, entry)
-        coordinator.set_pending_state("restarting")
-        try:
-            await coordinator.restart()
-        finally:
-            await coordinator.async_request_refresh()
-
-    async def async_start(service_call: ServiceCall) -> None:
-        """Start a stopped docker container."""
-        entity_id = service_call.data["entity_id"]
-        _LOGGER.debug("Service 'start' called for entity %s", entity_id)
-        entry = _get_entry_for_entity(hass, entity_id)
-        coordinator = _get_coordinator(hass, entry)
         coordinator.set_pending_state("starting")
         try:
-            await coordinator.start()
+            await coordinator.restart()
         finally:
             await coordinator.async_request_refresh()
 
@@ -156,8 +131,6 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
             await coordinator.async_request_refresh()
 
     hass.services.async_register(DOMAIN, SERVICE_CREATE, async_create, schema=SERVICE_ENTITY_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_RECREATE, async_recreate, schema=SERVICE_ENTITY_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_START, async_start, schema=SERVICE_ENTITY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_RESTART, async_restart, schema=SERVICE_ENTITY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_STOP, async_stop, schema=SERVICE_ENTITY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_REMOVE, async_remove, schema=SERVICE_ENTITY_SCHEMA)
