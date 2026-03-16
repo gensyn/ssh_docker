@@ -19,3 +19,9 @@ class SensorEntity:
 
     def async_schedule_update_ha_state(self, force_refresh: bool = False):
         """Mock schedule HA state update - no-op in tests."""
+
+    async def async_update_ha_state(self, force_refresh: bool = False):
+        """Mock async update HA state - no-op in tests."""
+
+    async def async_added_to_hass(self):
+        """Mock async_added_to_hass - no-op in tests."""

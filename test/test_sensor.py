@@ -3,7 +3,7 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 
 absolute_mock_path = str(Path(__file__).parent / "homeassistant_mock")
 sys.path.insert(0, absolute_mock_path)
@@ -17,6 +17,8 @@ from ssh_docker.const import (  # noqa: E402
     CONF_CHECK_FOR_UPDATES, DEFAULT_TIMEOUT,
 )
 from homeassistant.config_entries import ConfigEntry  # noqa: E402
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED  # noqa: E402
+from homeassistant.core import CoreState  # noqa: E402
 
 
 def _make_sensor(container_name="my_container", options=None):
@@ -243,6 +245,56 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
 
         # Should stop after checking for docker_create (3 calls total)
         self.assertEqual(call_count, 3)
+
+
+class TestAsyncAddedToHass(unittest.IsolatedAsyncioTestCase):
+    """Test the async_added_to_hass lifecycle method."""
+
+    def setUp(self):
+        """Clear the docker_create availability cache before each test."""
+        import ssh_docker.sensor as sensor_module
+        sensor_module._DOCKER_CREATE_CACHE.clear()
+
+    def _make_sensor_with_hass_state(self, hass_state, container_name="my_container"):
+        """Create a sensor with a mocked hass at the given state."""
+        options = {
+            "host": "192.168.1.100",
+            "username": "user",
+            "password": "pass",
+            "docker_command": "docker",
+            "check_known_hosts": True,
+        }
+        entry = ConfigEntry(
+            entry_id="test_id",
+            data={"name": container_name, "service": container_name},
+            options=options,
+        )
+        mock_hass = MagicMock()
+        mock_hass.state = hass_state
+        mock_hass.config_entries.async_entries.return_value = [entry]
+        sensor = DockerContainerSensor(entry, mock_hass)
+        sensor.hass = mock_hass
+        return sensor
+
+    async def test_async_added_to_hass_when_ha_running_creates_task(self):
+        """When HA is already running, async_added_to_hass should create an async task."""
+        sensor = self._make_sensor_with_hass_state(CoreState.running)
+        with patch.object(sensor, "async_update_ha_state", new=AsyncMock()):
+            await sensor.async_added_to_hass()
+
+        sensor.hass.async_create_task.assert_called_once()
+        sensor.hass.bus.async_listen_once.assert_not_called()
+
+    async def test_async_added_to_hass_when_ha_starting_registers_listener(self):
+        """When HA is starting, async_added_to_hass should register a one-shot event listener."""
+        sensor = self._make_sensor_with_hass_state(CoreState.starting)
+        with patch.object(sensor, "async_update_ha_state", new=AsyncMock()):
+            await sensor.async_added_to_hass()
+
+        sensor.hass.bus.async_listen_once.assert_called_once()
+        sensor.hass.async_create_task.assert_not_called()
+        event_name = sensor.hass.bus.async_listen_once.call_args[0][0]
+        self.assertEqual(event_name, EVENT_HOMEASSISTANT_STARTED)
 
 
 if __name__ == "__main__":

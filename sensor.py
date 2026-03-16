@@ -46,7 +46,7 @@ async def async_setup_entry(
     """Set up SSH Docker sensor platform from a config entry."""
     sensor = DockerContainerSensor(entry, hass)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = sensor
-    async_add_entities([sensor], update_before_add=True)
+    async_add_entities([sensor])
 
 
 async def _ssh_run(hass: HomeAssistant, options: dict[str, Any], command: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[
@@ -113,35 +113,28 @@ class DockerContainerSensor(SensorEntity):
             name=self._name,
         )
 
+    async def async_added_to_hass(self) -> None:
+        """Schedule the first update, deferring until HA has fully started if needed."""
+        await super().async_added_to_hass()
+        _host = self.entry.options.get(CONF_HOST, "")
+        _same_host_count = sum(
+            1 for e in self.hass.config_entries.async_entries(DOMAIN)
+            if e.options.get(CONF_HOST, "") == _host
+        )
+        stagger_secs = abs(hash(self.entry.entry_id)) % max(_same_host_count, 1)
+
+        async def _staggered_update(_event=None):
+            if stagger_secs > 0:
+                await asyncio.sleep(stagger_secs)
+            await self.async_update_ha_state(force_refresh=True)
+
+        if self.hass.state == CoreState.running:
+            self.hass.async_create_task(_staggered_update())
+        else:
+            self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _staggered_update)
+
     async def async_update(self) -> None:
         """Fetch the latest state from the remote docker host."""
-        if self.hass.state != CoreState.running:
-            # Delay the first update until Home Assistant is fully started so startup is not blocked by SSH calls.
-            # Each sensor registers a one-shot listener but adds a small deterministic stagger (derived from the
-            # entry_id) so that all sensors don't fire their initial SSH calls simultaneously.
-            # abs() guards against negative hash values on some platforms.
-            # Use the number of entries for the same host as the modulo divisor so that there is roughly one second
-            # of stagger per sensor, and a single sensor never waits unnecessarily long.
-            _host = self.entry.options.get(CONF_HOST, "")
-            _same_host_count = sum(
-                1 for e in self.hass.config_entries.async_entries(DOMAIN)
-                if e.options.get(CONF_HOST, "") == _host
-            )
-            stagger_secs = abs(hash(self.entry.entry_id)) % max(_same_host_count, 1)
-
-            async def _staggered_update(_event=None):
-                # HA is now in CoreState.running (event only fires after that), so
-                # the recursive call below will NOT re-register a listener; it will
-                # proceed directly to the SSH logic.
-                if stagger_secs > 0:
-                    await asyncio.sleep(stagger_secs)
-                await self.async_update_ha_state(force_refresh=True)
-
-            self.hass.bus.async_listen_once(
-                EVENT_HOMEASSISTANT_STARTED, _staggered_update
-            )
-            return
-
         options = dict(self.entry.options)
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
         service = self._service
