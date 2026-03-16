@@ -57,7 +57,16 @@ class SshDockerCard extends HTMLElement {
     const state = (entity && entity.state) || "unavailable";
     const name = attrs.name || entityId;
     const image = attrs.image || "-";
-    const created = attrs.created ? attrs.created.slice(0, 10) : "-";
+    const haLocale =
+      (this._hass && this._hass.locale && this._hass.locale.language) ||
+      undefined;
+    const formatDate = (dateStr) =>
+      new Date(dateStr).toLocaleDateString(haLocale, {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    const created = attrs.created ? formatDate(attrs.created) : "-";
     const host = attrs.host || "-";
     const updateBadge = attrs.update_available
       ? `<span class="update-badge">${this._t("update_available")}</span>`

@@ -179,7 +179,16 @@ class SshDockerPanel extends HTMLElement {
     const name = attrs.name || entity.entity_id;
     const state = entity.state || "unavailable";
     const image = attrs.image || "-";
-    const created = attrs.created ? attrs.created.slice(0, 10) : "-";
+    const haLocale =
+      (this._hass && this._hass.locale && this._hass.locale.language) ||
+      undefined;
+    const formatDate = (dateStr) =>
+      new Date(dateStr).toLocaleDateString(haLocale, {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    const created = attrs.created ? formatDate(attrs.created) : "-";
     const updateBadge = attrs.update_available
       ? `<span class="update-badge">${this._t("update_available")}</span>`
       : "";
