@@ -182,7 +182,7 @@ class SshDockerPanel extends HTMLElement {
 
     // Conditional button visibility per the requirements.
     // Create/Recreate: only if docker_create is available; label changes based on container state.
-    const transitionalStates = ["creating", "restarting", "stopping", "removing", "refreshing"];
+    const transitionalStates = ["creating", "initializing", "restarting", "stopping", "removing", "refreshing"];
     const isTransitional = transitionalStates.includes(state);
     const showCreate   = !isTransitional && attrs.docker_create_available === true;
     const createLabel  = state !== "unavailable"
@@ -194,7 +194,7 @@ class SshDockerPanel extends HTMLElement {
     const showStart    = !isTransitional && stoppedStates.includes(state);
     const showStop     = !isTransitional && state === "running";
     const showRemove   = !isTransitional && state !== "unavailable" && state !== "unknown";
-    const showRefresh  = state !== "refreshing";
+    const showRefresh  = state !== "refreshing" && state !== "initializing";
 
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
