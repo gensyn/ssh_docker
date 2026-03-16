@@ -23,6 +23,10 @@ class SshDockerCard extends HTMLElement {
     return (this._hass && this._hass.localize(`component.ssh_docker.entity.ui.${key}.name`)) || key;
   }
 
+  _tState(state) {
+    return (this._hass && this._hass.localize(`component.ssh_docker.entity.sensor.state.state.${state}`)) || state;
+  }
+
   _stateColor(state) {
     switch (state) {
       case "running":    return "#27ae60";
@@ -151,7 +155,7 @@ class SshDockerCard extends HTMLElement {
       <ha-card>
         <div class="card-header">
           <span>${name}</span>
-          <span class="badge">${state}</span>
+          <span class="badge">${this._tState(state)}</span>
         </div>
         <div class="card-content">
           <table>

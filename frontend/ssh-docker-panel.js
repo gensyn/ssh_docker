@@ -101,6 +101,10 @@ class SshDockerPanel extends HTMLElement {
     return (this._hass && this._hass.localize(`component.ssh_docker.entity.ui.${key}.name`)) || key;
   }
 
+  _tState(state) {
+    return (this._hass && this._hass.localize(`component.ssh_docker.entity.sensor.state.state.${state}`)) || state;
+  }
+
   _getContainerHost(entity) {
     return entity.attributes && entity.attributes.host ? entity.attributes.host : this._t("unknown_host");
   }
@@ -209,7 +213,7 @@ class SshDockerPanel extends HTMLElement {
       <div class="container-card">
         <div class="container-card-header" style="background:${this._stateColor(state)}">
           <span class="container-name">${name}</span>
-          <span class="state-badge">${state}</span>
+          <span class="state-badge">${this._tState(state)}</span>
         </div>
         <div class="container-card-content">
           <table>
@@ -252,7 +256,7 @@ class SshDockerPanel extends HTMLElement {
         (f) =>
           `<button class="filter-btn${this._filter === f ? " active" : ""}"
                    data-filter="${f}">
-            ${filterLabels[f] || (f === "all" ? this._t("all_states") : f)} (${counts[f]})
+            ${filterLabels[f] || (f === "all" ? this._t("all_states") : this._tState(f))} (${counts[f]})
            </button>`
       )
       .join("");

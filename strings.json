@@ -122,6 +122,11 @@
           "created": "Created",
           "paused": "Paused",
           "restarting": "Restarting",
+          "starting": "Starting",
+          "stopping": "Stopping",
+          "removing": "Removing",
+          "creating": "Creating",
+          "initializing": "Initializing",
           "dead": "Dead",
           "unavailable": "Unavailable",
           "refreshing": "Refreshing"
@@ -147,7 +152,7 @@
       "btn_refresh": { "name": "↻ Refresh" },
       "unknown_host": { "name": "Unknown Host" },
       "all_states": { "name": "All states" },
-      "updates_filter": { "name": "⬆ updates" },
+      "updates_filter": { "name": "⬆ Updates" },
       "all_hosts": { "name": "All Hosts" },
       "no_containers": { "name": "No Docker containers found." }
     }
