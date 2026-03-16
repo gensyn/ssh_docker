@@ -19,7 +19,7 @@ from .const import (
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES, CONF_SERVICE,
     SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS,
-    SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE,
+    SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
     DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
     DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     DOCKER_SERVICES_EXECUTABLE, DOCKER_CREATE_EXECUTABLE, DOCKER_CREATE_TIMEOUT,
@@ -265,6 +265,18 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
     hass.services.async_register(DOMAIN, SERVICE_RESTART, async_restart, schema=SERVICE_ENTITY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_STOP, async_stop, schema=SERVICE_ENTITY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_REMOVE, async_remove, schema=SERVICE_ENTITY_SCHEMA)
+
+    async def async_refresh(service_call: ServiceCall) -> None:
+        """Refresh a docker container sensor state."""
+        entity_id = service_call.data["entity_id"]
+        _LOGGER.debug("Service 'refresh' called for entity %s", entity_id)
+        entry = _get_entry_for_entity(hass, entity_id)
+        sensor = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        if sensor:
+            sensor.set_transitional_state("refreshing")
+            await sensor.async_update_ha_state(force_refresh=True)
+
+    hass.services.async_register(DOMAIN, SERVICE_REFRESH, async_refresh, schema=SERVICE_ENTITY_SCHEMA)
 
     _LOGGER.debug("SSH Docker integration setup complete")
     return True

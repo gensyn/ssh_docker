@@ -203,6 +203,7 @@ class SshDockerPanel extends HTMLElement {
       case "removing":   return "#c0392b";
       case "stopping":   return "#e67e22";
       case "creating":   return "#2980b9";
+      case "refreshing": return "#7f8c8d";
       default:           return "#95a5a6";
     }
   }
@@ -230,6 +231,7 @@ class SshDockerPanel extends HTMLElement {
     const showStart    = stoppedStates.includes(state);
     const showStop     = state === "running";
     const showRemove   = state !== "unavailable" && state !== "unknown";
+    const showRefresh  = state !== "refreshing";
 
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
@@ -237,9 +239,8 @@ class SshDockerPanel extends HTMLElement {
       showStart   ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">${this._t("btn_start")}</button>`   : "",
       showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">${this._t("btn_stop")}</button>`    : "",
       showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">${this._t("btn_remove")}</button>`  : "",
-      `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>`,
+      showRefresh ? `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>` : "",
     ].filter(Boolean).join("");
-
     return `
       <div class="container-card">
         <div class="container-card-header" style="background:${this._stateColor(state)}">
@@ -260,11 +261,7 @@ class SshDockerPanel extends HTMLElement {
 
   _handleAction(action, entityId) {
     if (!this._hass) return;
-    if (action === "refresh") {
-      this._hass.callService("homeassistant", "update_entity", { entity_id: entityId });
-    } else {
-      this._hass.callService("ssh_docker", action, { entity_id: entityId });
-    }
+    this._hass.callService("ssh_docker", action, { entity_id: entityId });
   }
 
   _render() {
@@ -274,7 +271,7 @@ class SshDockerPanel extends HTMLElement {
     const stateFiltered = this._getStateFilteredContainers();
     const filteredContainers = this._getFilteredContainers();
 
-    const states = ["running", "exited", "paused", "restarting", "dead", "unavailable"];
+    const states = ["running", "exited", "paused", "restarting", "dead", "unavailable", "refreshing"];
     const counts = { all: allContainers.length };
     for (const s of states) {
       counts[s] = allContainers.filter((c) => c.state === s).length;

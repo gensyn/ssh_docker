@@ -45,3 +45,15 @@ remove:
       selector:
         entity:
           domain: sensor
+
+refresh:
+  name: Refresh Docker Container Info
+  description: Refreshes the sensor state for a docker container on the remote host.
+  fields:
+    entity_id:
+      name: Entity ID
+      description: The entity ID of the docker container sensor.
+      required: true
+      selector:
+        entity:
+          domain: sensor
