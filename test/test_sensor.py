@@ -178,16 +178,21 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
             if call_count == 3:
                 # check if docker_create exists
                 return "found", 0
-            # docker_create execution
-            return "", 0
+            if call_count == 4:
+                # docker_create execution
+                return "", 0
+            # follow-up refresh: container now runs new image
+            if call_count == 5:
+                return "running;2023-01-01T00:00:00Z;nginx:latest;sha256:new456", 0
+            return "sha256:new456", 0
 
         with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             await sensor.async_update()
 
-        self.assertEqual(call_count, 4)
+        self.assertEqual(call_count, 6)
 
     async def test_auto_update_schedules_refresh_after_successful_recreate(self):
-        """Test that a state refresh is scheduled after a successful auto-recreate."""
+        """Test that async_request_refresh is awaited after a successful auto-recreate."""
         options = {
             "host": "192.168.1.100",
             "username": "user",
@@ -209,17 +214,25 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
                 return "sha256:new456", 0
             if call_count == 3:
                 return "found", 0
-            # docker_create execution succeeds
-            return "", 0
+            if call_count == 4:
+                # docker_create execution succeeds
+                return "", 0
+            # follow-up refresh: container now runs new image
+            if call_count == 5:
+                return "running;2023-01-01T00:00:00Z;nginx:latest;sha256:new456", 0
+            return "sha256:new456", 0
 
-        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
-            await sensor.async_update()
+        with patch.object(coordinator, "async_request_refresh", wraps=coordinator.async_request_refresh) as mock_refresh:
+            with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
+                await sensor.async_update()
 
-        # A refresh is always scheduled after auto-recreate attempt
-        coordinator.hass.async_create_task.assert_called_once()
+        # async_request_refresh is called twice: once by sensor.async_update(), once as follow-up after recreate
+        self.assertEqual(mock_refresh.call_count, 2)
+        # After successful recreate the coordinator data should show no update available
+        self.assertFalse(coordinator.data["update_available"])
 
     async def test_auto_update_schedules_refresh_even_when_recreate_fails(self):
-        """Test that a refresh is still scheduled even when auto-recreate fails."""
+        """Test that a refresh is still awaited even when auto-recreate fails."""
         options = {
             "host": "192.168.1.100",
             "username": "user",
@@ -242,14 +255,20 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
             if call_count == 3:
                 # docker_create exists check
                 return "found", 0
-            # docker_create execution fails
-            return "", 1
+            if call_count == 4:
+                # docker_create execution fails
+                return "", 1
+            # follow-up refresh: container still runs old image
+            if call_count == 5:
+                return "running;2023-01-01T00:00:00Z;nginx:latest;sha256:old123", 0
+            return "sha256:new456", 0
 
-        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
-            await sensor.async_update()
+        with patch.object(coordinator, "async_request_refresh", wraps=coordinator.async_request_refresh) as mock_refresh:
+            with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
+                await sensor.async_update()
 
-        # Refresh is scheduled regardless of recreate outcome
-        coordinator.hass.async_create_task.assert_called_once()
+        # async_request_refresh is called twice: once by sensor.async_update(), once as follow-up
+        self.assertEqual(mock_refresh.call_count, 2)
 
     async def test_auto_update_skips_when_docker_create_missing(self):
         """Test that auto-update logs a warning when docker_create is not found."""
@@ -272,16 +291,15 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
                 return "running;2023-01-01T00:00:00Z;nginx:latest;sha256:old123", 0
             if call_count == 2:
                 return "sha256:new456", 0
-            # docker_create not found
+            # docker_create not found (call 3) and any further calls
             return "not_found", 0
 
-        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
-            await sensor.async_update()
+        with patch.object(coordinator, "async_request_refresh", wraps=coordinator.async_request_refresh) as mock_refresh:
+            with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
+                await sensor.async_update()
 
-        # Should stop after checking for docker_create (3 calls total)
-        self.assertEqual(call_count, 3)
-        # A refresh is still scheduled regardless
-        coordinator.hass.async_create_task.assert_called_once()
+        # async_request_refresh is called twice: once by sensor.async_update(), once as follow-up
+        self.assertEqual(mock_refresh.call_count, 2)
 
     async def test_pending_state_returned_by_native_value(self):
         """Test that a pending state set on coordinator is reflected by the sensor."""
