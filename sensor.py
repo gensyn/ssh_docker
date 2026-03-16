@@ -30,9 +30,7 @@ async def async_setup_entry(
         async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up SSH Docker sensor platform from a config entry."""
-    coordinator = hass.data.setdefault(DOMAIN, {}).setdefault(
-        entry.entry_id, SshDockerCoordinator(hass, entry)
-    )
+    coordinator: SshDockerCoordinator = hass.data[DOMAIN][entry.entry_id]
     sensor = DockerContainerSensor(coordinator, entry, hass)
     async_add_entities([sensor])
 

@@ -107,7 +107,7 @@ class SshDockerCoordinator:
     """
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Initialise the coordinator."""
+        """Initialize the coordinator."""
         self.hass = hass
         self.entry = entry
         self._name: str = entry.data[CONF_NAME]

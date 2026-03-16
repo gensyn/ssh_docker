@@ -153,6 +153,10 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SSH Docker from a config entry."""
     _LOGGER.debug("Setting up config entry for container %s", entry.data.get(CONF_NAME))
+    # Create (and store) the coordinator before platforms are loaded so that
+    # both sensor and update platforms can retrieve it via hass.data.
+    coordinator = SshDockerCoordinator(hass, entry)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, _PLATFORMS)
     hass.async_create_task(_discover_services(hass, entry))
     return True

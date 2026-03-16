@@ -32,9 +32,7 @@ async def async_setup_entry(
         async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up SSH Docker update platform from a config entry."""
-    coordinator: SshDockerCoordinator = hass.data.setdefault(DOMAIN, {}).setdefault(
-        entry.entry_id, SshDockerCoordinator(hass, entry)
-    )
+    coordinator: SshDockerCoordinator = hass.data[DOMAIN][entry.entry_id]
     update_entity = DockerContainerUpdateEntity(coordinator, entry, hass)
     async_add_entities([update_entity])
 
