@@ -9,18 +9,13 @@ from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .const import (
-    DOMAIN, CONF_SERVICE, CONF_DOCKER_COMMAND,
-    DOCKER_CREATE_EXECUTABLE, DOCKER_CREATE_TIMEOUT,
-    DEFAULT_DOCKER_COMMAND,
-)
-from .sensor import _ssh_run
+from .const import DOMAIN, CONF_SERVICE
+from .coordinator import SshDockerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,13 +32,18 @@ async def async_setup_entry(
         async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up SSH Docker update platform from a config entry."""
-    update_entity = DockerContainerUpdateEntity(entry, hass)
-    hass.data.setdefault(DOMAIN, {})[f"{entry.entry_id}_update"] = update_entity
+    coordinator: SshDockerCoordinator = hass.data.setdefault(DOMAIN, {}).setdefault(
+        entry.entry_id, SshDockerCoordinator(hass, entry)
+    )
+    update_entity = DockerContainerUpdateEntity(coordinator, entry, hass)
     async_add_entities([update_entity])
 
 
 class DockerContainerUpdateEntity(UpdateEntity):
-    """Update entity for a Docker container on a remote host."""
+    """Update entity for a Docker container on a remote host.
+
+    Listens to coordinator data changes; delegates install to the coordinator.
+    """
 
     _attr_has_entity_name = True
     _attr_translation_key = "update"
@@ -52,9 +52,15 @@ class DockerContainerUpdateEntity(UpdateEntity):
         UpdateEntityFeature.INSTALL | UpdateEntityFeature.PROGRESS
     )
 
-    def __init__(self, entry: ConfigEntry, hass: HomeAssistant) -> None:
+    def __init__(
+        self,
+        coordinator: SshDockerCoordinator,
+        entry: ConfigEntry,
+        hass: HomeAssistant,
+    ) -> None:
         """Initialize the update entity."""
         super().__init__()
+        self.coordinator = coordinator
         self.entry = entry
         self.hass = hass
         self._name = entry.data[CONF_NAME]
@@ -74,15 +80,30 @@ class DockerContainerUpdateEntity(UpdateEntity):
             name=self._name,
         )
 
+    async def async_added_to_hass(self) -> None:
+        """Register coordinator listener so update state stays in sync."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self._handle_coordinator_update)
+        )
+
+    def _handle_coordinator_update(self) -> None:
+        """Propagate coordinator data changes to the update entity."""
+        data = self.coordinator.data
+        self.set_update_state(
+            data.get("update_available", False),
+            data.get("installed_image_id"),
+            data.get("latest_image_id"),
+        )
+
     def set_update_state(
             self,
             update_available: bool,
             installed_image_id: str | None,
             latest_image_id: str | None = None,
     ) -> None:
-        """Update the entity state based on sensor data.
+        """Update the entity state based on coordinator data.
 
-        Called by DockerContainerSensor after each successful poll.
         ``update_available=True`` sets latest_version to a value different from
         installed_version so HA reports the entity state as ON (update available).
         Both versions are shown as short (12-char) Docker image IDs.
@@ -103,62 +124,16 @@ class DockerContainerUpdateEntity(UpdateEntity):
     async def async_install(
             self, version: str | None, backup: bool, **kwargs: Any
     ) -> None:
-        """Install the update by recreating the container via docker_create."""
-        options = dict(self.entry.options)
-        name = self._service
-        _LOGGER.debug("Update install requested for container %s", name)
+        """Install the update by re-creating the container via the coordinator."""
+        _LOGGER.debug("Update install requested for container %s", self._service)
 
         self._attr_in_progress = True
         self.async_write_ha_state()
 
         try:
-            check_cmd = (
-                f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1 && echo found"
-                f" || (test -f /usr/bin/{DOCKER_CREATE_EXECUTABLE} && echo found || echo not_found)"
-            )
-            try:
-                output, _ = await _ssh_run(self.hass, options, check_cmd)
-                if output.strip() != "found":
-                    _LOGGER.error(
-                        "Update install for %s: %s not found on host",
-                        name,
-                        DOCKER_CREATE_EXECUTABLE,
-                    )
-                    raise ServiceValidationError(
-                        f"{DOCKER_CREATE_EXECUTABLE} not found on host",
-                        translation_domain=DOMAIN,
-                        translation_key="docker_create_not_found",
-                    )
-            except (ServiceValidationError, HomeAssistantError):
-                raise
-            except Exception as err:  # pylint: disable=broad-except
-                _LOGGER.error("Update install for %s: SSH error: %s", name, err)
-                raise HomeAssistantError(
-                    f"SSH error while checking for docker_create: {err}"
-                ) from err
-
-            create_cmd = (
-                f"if command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1;"
-                f" then {DOCKER_CREATE_EXECUTABLE} {name};"
-                f" else /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}; fi"
-            )
-            _, exit_status = await _ssh_run(
-                self.hass, options, create_cmd, timeout=DOCKER_CREATE_TIMEOUT
-            )
-            if exit_status != 0:
-                _LOGGER.warning(
-                    "Update install: %s exited with status %s for container %s; "
-                    "the container may still have been recreated — check the sensor state",
-                    DOCKER_CREATE_EXECUTABLE,
-                    exit_status,
-                    name,
-                )
-            else:
-                _LOGGER.info("Update install: successfully recreated container %s", name)
+            await self.coordinator.create()
         finally:
             self._attr_in_progress = False
             self.async_write_ha_state()
-            # Trigger a sensor refresh so the new state is reflected quickly.
-            sensor = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
-            if sensor is not None:
-                sensor.async_schedule_update_ha_state(force_refresh=True)
+            # Refresh coordinator so the new container state is reflected quickly.
+            await self.coordinator.async_request_refresh()
