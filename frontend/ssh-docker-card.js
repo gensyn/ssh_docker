@@ -13,6 +13,7 @@ const SSH_DOCKER_CARD_TRANSLATIONS = {
     btn_stop: "■ Stop",
     btn_remove: "🗑 Remove",
     btn_refresh: "↻ Refresh",
+    btn_refreshing: "↻ Refreshing…",
   },
   de: {
     host_label: "Host",
@@ -26,6 +27,7 @@ const SSH_DOCKER_CARD_TRANSLATIONS = {
     btn_stop: "■ Stoppen",
     btn_remove: "🗑 Entfernen",
     btn_refresh: "↻ Aktualisieren",
+    btn_refreshing: "↻ Wird aktualisiert…",
   },
 };
 
@@ -34,10 +36,32 @@ class SshDockerCard extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     this._entity = null;
+    this._refreshing = false;
+    this._refreshLastUpdated = null;
+    this._refreshTimeout = null;
+  }
+
+  disconnectedCallback() {
+    if (this._refreshTimeout !== null) {
+      clearTimeout(this._refreshTimeout);
+      this._refreshTimeout = null;
+    }
   }
 
   set hass(hass) {
     this._hass = hass;
+    // Clear refreshing state if the entity was updated since the refresh was triggered.
+    if (this._refreshing && this.config) {
+      const entity = hass.states[this.config.entity];
+      if (entity && entity.last_updated !== this._refreshLastUpdated) {
+        this._refreshing = false;
+        this._refreshLastUpdated = null;
+        if (this._refreshTimeout !== null) {
+          clearTimeout(this._refreshTimeout);
+          this._refreshTimeout = null;
+        }
+      }
+    }
     this._render();
   }
 
@@ -72,7 +96,28 @@ class SshDockerCard extends HTMLElement {
   _handleAction(action, entityId) {
     if (!this._hass) return;
     if (action === "refresh") {
-      this._hass.callService("homeassistant", "update_entity", { entity_id: entityId });
+      const entity = this._hass.states[entityId];
+      this._refreshing = true;
+      this._refreshLastUpdated = entity ? entity.last_updated : null;
+      this._hass.callService("homeassistant", "update_entity", { entity_id: entityId }).catch(() => {
+        this._refreshing = false;
+        this._refreshLastUpdated = null;
+        if (this._refreshTimeout !== null) {
+          clearTimeout(this._refreshTimeout);
+          this._refreshTimeout = null;
+        }
+        this._render();
+      });
+      this._render();
+      // Fallback: clear refreshing state after 15 seconds in case the entity doesn't update.
+      this._refreshTimeout = setTimeout(() => {
+        this._refreshTimeout = null;
+        if (this._refreshing) {
+          this._refreshing = false;
+          this._refreshLastUpdated = null;
+          this._render();
+        }
+      }, 15000);
     } else {
       this._hass.callService("ssh_docker", action, { entity_id: entityId });
     }
@@ -110,7 +155,9 @@ class SshDockerCard extends HTMLElement {
       showStart   ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">${this._t("btn_start")}</button>`   : "",
       showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">${this._t("btn_stop")}</button>`    : "",
       showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">${this._t("btn_remove")}</button>`  : "",
-      `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>`,
+      this._refreshing
+        ? `<button class="action-btn refresh-btn refreshing" disabled data-action="refresh" data-entity="${entityId}">${this._t("btn_refreshing")}</button>`
+        : `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>`,
     ].filter(Boolean).join("");
 
     this.shadowRoot.innerHTML = `
@@ -178,6 +225,15 @@ class SshDockerCard extends HTMLElement {
         .stop-btn    { background: #e67e22; }
         .remove-btn  { background: #e74c3c; }
         .refresh-btn { background: #7f8c8d; }
+        .refresh-btn.refreshing {
+          opacity: 0.7;
+          cursor: not-allowed;
+          animation: refreshPulse 1s ease-in-out infinite;
+        }
+        @keyframes refreshPulse {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; }
+        }
       </style>
       <ha-card>
         <div class="card-header">
