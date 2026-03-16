@@ -94,6 +94,10 @@ class DockerContainerSensor(SensorEntity):
             self.coordinator.async_add_listener(self.async_write_ha_state)
         )
 
+        # Show a transitional state so the UI doesn't sit on "unknown" while
+        # the first SSH fetch is queued/in-progress.
+        self.coordinator.set_pending_state("initializing")
+
         _host = self.entry.options.get(CONF_HOST, "")
         _same_host_count = sum(
             1 for e in self.hass.config_entries.async_entries(DOMAIN)

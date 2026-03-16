@@ -387,6 +387,14 @@ class TestAsyncAddedToHass(unittest.IsolatedAsyncioTestCase):
         event_name = sensor.hass.bus.async_listen_once.call_args[0][0]
         self.assertEqual(event_name, EVENT_HOMEASSISTANT_STARTED)
 
+    async def test_async_added_to_hass_sets_initializing_pending_state(self):
+        """Test that async_added_to_hass sets an 'initializing' pending state immediately."""
+        sensor = self._make_sensor_with_hass_state(CoreState.running)
+        with patch.object(sensor, "async_update_ha_state", new=AsyncMock()):
+            await sensor.async_added_to_hass()
+
+        self.assertEqual(sensor.native_value, "initializing")
+
 
 if __name__ == "__main__":
     unittest.main()
