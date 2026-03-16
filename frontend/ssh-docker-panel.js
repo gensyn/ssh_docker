@@ -195,7 +195,7 @@ class SshDockerPanel extends HTMLElement {
     const showStart    = !isTransitional && stoppedStates.includes(state);
     const showStop     = !isTransitional && state === "running";
     const showRemove   = !isTransitional && state !== "unavailable" && state !== "unknown";
-    const showRefresh  = state !== "refreshing" && state !== "initializing";
+    const showRefresh  = state !== "initializing";
 
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
