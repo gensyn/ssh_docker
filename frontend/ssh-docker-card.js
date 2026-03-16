@@ -23,6 +23,10 @@ class SshDockerCard extends HTMLElement {
     return (this._hass && this._hass.localize(`component.ssh_docker.entity.ui.${key}.name`)) || key;
   }
 
+  _tState(state) {
+    return (this._hass && this._hass.localize(`component.ssh_docker.entity.sensor.state.state.${state}`)) || state;
+  }
+
   _stateColor(state) {
     switch (state) {
       case "running":    return "#27ae60";
@@ -53,7 +57,16 @@ class SshDockerCard extends HTMLElement {
     const state = (entity && entity.state) || "unavailable";
     const name = attrs.name || entityId;
     const image = attrs.image || "-";
-    const created = attrs.created ? attrs.created.slice(0, 10) : "-";
+    const haLocale =
+      (this._hass && this._hass.locale && this._hass.locale.language) ||
+      undefined;
+    const formatDate = (dateStr) =>
+      new Date(dateStr).toLocaleDateString(haLocale, {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    const created = attrs.created ? formatDate(attrs.created) : "-";
     const host = attrs.host || "-";
     const updateBadge = attrs.update_available
       ? `<span class="update-badge">${this._t("update_available")}</span>`
@@ -104,7 +117,6 @@ class SshDockerCard extends HTMLElement {
           border-radius: 12px;
           font-size: 0.78em;
           background: rgba(255,255,255,0.3);
-          text-transform: capitalize;
           flex-shrink: 0;
         }
         .card-content {
@@ -151,7 +163,7 @@ class SshDockerCard extends HTMLElement {
       <ha-card>
         <div class="card-header">
           <span>${name}</span>
-          <span class="badge">${state}</span>
+          <span class="badge">${this._tState(state)}</span>
         </div>
         <div class="card-content">
           <table>

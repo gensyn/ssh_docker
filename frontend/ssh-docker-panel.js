@@ -101,6 +101,10 @@ class SshDockerPanel extends HTMLElement {
     return (this._hass && this._hass.localize(`component.ssh_docker.entity.ui.${key}.name`)) || key;
   }
 
+  _tState(state) {
+    return (this._hass && this._hass.localize(`component.ssh_docker.entity.sensor.state.state.${state}`)) || state;
+  }
+
   _getContainerHost(entity) {
     return entity.attributes && entity.attributes.host ? entity.attributes.host : this._t("unknown_host");
   }
@@ -175,7 +179,16 @@ class SshDockerPanel extends HTMLElement {
     const name = attrs.name || entity.entity_id;
     const state = entity.state || "unavailable";
     const image = attrs.image || "-";
-    const created = attrs.created ? attrs.created.slice(0, 10) : "-";
+    const haLocale =
+      (this._hass && this._hass.locale && this._hass.locale.language) ||
+      undefined;
+    const formatDate = (dateStr) =>
+      new Date(dateStr).toLocaleDateString(haLocale, {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    const created = attrs.created ? formatDate(attrs.created) : "-";
     const updateBadge = attrs.update_available
       ? `<span class="update-badge">${this._t("update_available")}</span>`
       : "";
@@ -209,7 +222,7 @@ class SshDockerPanel extends HTMLElement {
       <div class="container-card">
         <div class="container-card-header" style="background:${this._stateColor(state)}">
           <span class="container-name">${name}</span>
-          <span class="state-badge">${state}</span>
+          <span class="state-badge">${this._tState(state)}</span>
         </div>
         <div class="container-card-content">
           <table>
@@ -252,7 +265,7 @@ class SshDockerPanel extends HTMLElement {
         (f) =>
           `<button class="filter-btn${this._filter === f ? " active" : ""}"
                    data-filter="${f}">
-            ${filterLabels[f] || (f === "all" ? this._t("all_states") : f)} (${counts[f]})
+            ${filterLabels[f] || (f === "all" ? this._t("all_states") : this._tState(f))} (${counts[f]})
            </button>`
       )
       .join("");
@@ -436,7 +449,6 @@ class SshDockerPanel extends HTMLElement {
           border-radius: 12px;
           font-size: 0.78em;
           flex-shrink: 0;
-          text-transform: capitalize;
         }
         .container-card-content {
           padding: 8px 16px 12px;
