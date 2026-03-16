@@ -60,15 +60,17 @@ class SshDockerCard extends HTMLElement {
       : "";
 
     // Conditional button visibility — same logic as the panel.
-    const showCreate   = attrs.docker_create_available === true;
+    const transitionalStates = ["creating", "restarting", "stopping", "removing", "refreshing"];
+    const isTransitional = transitionalStates.includes(state);
+    const showCreate   = !isTransitional && attrs.docker_create_available === true;
     const createLabel  = state !== "unavailable"
       ? (attrs.update_available && state === "running" ? this._t("btn_update") : this._t("btn_recreate"))
       : this._t("btn_create");
     const stoppedStates = ["exited", "created", "dead", "paused"];
-    const showRestart  = state === "running";
-    const showStart    = stoppedStates.includes(state);
-    const showStop     = state === "running";
-    const showRemove   = state !== "unavailable" && state !== "unknown" && state !== "removing";
+    const showRestart  = !isTransitional && state === "running";
+    const showStart    = !isTransitional && stoppedStates.includes(state);
+    const showStop     = !isTransitional && state === "running";
+    const showRemove   = !isTransitional && state !== "unavailable" && state !== "unknown";
     const showRefresh  = state !== "refreshing";
 
     const actionButtons = [
