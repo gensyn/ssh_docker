@@ -13,3 +13,4 @@ class Platform:
     """Mock Platform enum."""
 
     SENSOR = "sensor"
+    UPDATE = "update"

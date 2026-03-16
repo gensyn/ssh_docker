@@ -28,7 +28,7 @@ from .const import (
 from .frontend import SshDockerPanelRegistration
 from .sensor import DockerContainerSensor
 
-_PLATFORMS: list[Platform] = [Platform.SENSOR]
+_PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.UPDATE]
 _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)  # pylint: disable=invalid-name

@@ -116,6 +116,11 @@
           "unavailable": "Nicht verfügbar"
         }
       }
+    },
+    "update": {
+      "update": {
+        "name": "Update"
+      }
     }
   },
   "exceptions": {
