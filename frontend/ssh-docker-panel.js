@@ -17,7 +17,6 @@ const SSH_DOCKER_PANEL_TRANSLATIONS = {
     btn_stop: "■ Stop",
     btn_remove: "🗑 Remove",
     btn_refresh: "↻ Refresh",
-    btn_refreshing: "↻ Refreshing…",
   },
   de: {
     unknown_host: "Unbekannter Host",
@@ -35,7 +34,6 @@ const SSH_DOCKER_PANEL_TRANSLATIONS = {
     btn_stop: "■ Stoppen",
     btn_remove: "🗑 Entfernen",
     btn_refresh: "↻ Aktualisieren",
-    btn_refreshing: "↻ Wird aktualisiert…",
   },
 };
 
@@ -48,32 +46,10 @@ class SshDockerPanel extends HTMLElement {
     this._narrow = false;
     this._lastSnapshot = null;
     this._collapsedHosts = new Set();
-    this._refreshing = new Set();
-    this._refreshEntityLastUpdated = {};
-    this._refreshTimeouts = {};
   }
 
   set hass(hass) {
     this._hass = hass;
-    // Clear refreshing state for entities whose last_updated has changed.
-    if (this._refreshing.size > 0) {
-      const prevSize = this._refreshing.size;
-      for (const entityId of [...this._refreshing]) {
-        const entity = hass.states[entityId];
-        if (entity && entity.last_updated !== this._refreshEntityLastUpdated[entityId]) {
-          this._refreshing.delete(entityId);
-          delete this._refreshEntityLastUpdated[entityId];
-          if (this._refreshTimeouts[entityId] !== undefined) {
-            clearTimeout(this._refreshTimeouts[entityId]);
-            delete this._refreshTimeouts[entityId];
-          }
-        }
-      }
-      if (this._refreshing.size !== prevSize) {
-        // Force re-render to remove the refreshing indicator.
-        this._lastSnapshot = null;
-      }
-    }
     // Only re-render when SSH Docker entity states/attributes actually changed.
     const snapshot = this._sshDockerSnapshot(hass);
     if (snapshot === this._lastSnapshot) return;
@@ -146,10 +122,6 @@ class SshDockerPanel extends HTMLElement {
       window.removeEventListener("focus", this._focusHandler);
       this._focusHandler = null;
     }
-    for (const id of Object.values(this._refreshTimeouts)) {
-      clearTimeout(id);
-    }
-    this._refreshTimeouts = {};
   }
 
   // Returns a compact string snapshot of all SSH Docker sensor states + attributes.
@@ -231,6 +203,7 @@ class SshDockerPanel extends HTMLElement {
       case "removing":   return "#c0392b";
       case "stopping":   return "#e67e22";
       case "creating":   return "#2980b9";
+      case "refreshing": return "#7f8c8d";
       default:           return "#95a5a6";
     }
   }
@@ -258,17 +231,15 @@ class SshDockerPanel extends HTMLElement {
     const showStart    = stoppedStates.includes(state);
     const showStop     = state === "running";
     const showRemove   = state !== "unavailable" && state !== "unknown";
+    const showRefresh  = state !== "refreshing";
 
-    const isRefreshing = this._refreshing.has(entityId);
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
       showRestart ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">${this._t("btn_restart")}</button>` : "",
       showStart   ? `<button class="action-btn restart-btn" data-action="restart" data-entity="${entityId}">${this._t("btn_start")}</button>`   : "",
       showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">${this._t("btn_stop")}</button>`    : "",
       showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">${this._t("btn_remove")}</button>`  : "",
-      isRefreshing
-        ? `<button class="action-btn refresh-btn refreshing" disabled data-action="refresh" data-entity="${entityId}">${this._t("btn_refreshing")}</button>`
-        : `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>`,
+      showRefresh ? `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>` : "",
     ].filter(Boolean).join("");
     return `
       <div class="container-card">
@@ -290,32 +261,7 @@ class SshDockerPanel extends HTMLElement {
 
   _handleAction(action, entityId) {
     if (!this._hass) return;
-    if (action === "refresh") {
-      const entity = this._hass.states[entityId];
-      this._refreshing.add(entityId);
-      this._refreshEntityLastUpdated[entityId] = entity ? entity.last_updated : null;
-      this._hass.callService("homeassistant", "update_entity", { entity_id: entityId }).catch(() => {
-        this._refreshing.delete(entityId);
-        delete this._refreshEntityLastUpdated[entityId];
-        if (this._refreshTimeouts[entityId] !== undefined) {
-          clearTimeout(this._refreshTimeouts[entityId]);
-          delete this._refreshTimeouts[entityId];
-        }
-        this._render();
-      });
-      this._render();
-      // Fallback: clear refreshing state after 15 seconds in case the entity doesn't update.
-      this._refreshTimeouts[entityId] = setTimeout(() => {
-        delete this._refreshTimeouts[entityId];
-        if (this._refreshing.has(entityId)) {
-          this._refreshing.delete(entityId);
-          delete this._refreshEntityLastUpdated[entityId];
-          this._render();
-        }
-      }, 15000);
-    } else {
-      this._hass.callService("ssh_docker", action, { entity_id: entityId });
-    }
+    this._hass.callService("ssh_docker", action, { entity_id: entityId });
   }
 
   _render() {
@@ -571,15 +517,6 @@ class SshDockerPanel extends HTMLElement {
         .stop-btn    { background: #e67e22; }
         .remove-btn  { background: #e74c3c; }
         .refresh-btn { background: #7f8c8d; }
-        .refresh-btn.refreshing {
-          opacity: 0.7;
-          cursor: not-allowed;
-          animation: refreshPulse 1s ease-in-out infinite;
-        }
-        @keyframes refreshPulse {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
-        }
         .no-containers {
           color: var(--secondary-text-color, #727272);
           font-style: italic;
