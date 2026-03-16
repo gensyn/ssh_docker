@@ -11,11 +11,12 @@ sys.path.insert(0, absolute_mock_path)
 absolute_plugin_path = str(Path(__file__).parent.parent.parent.absolute())
 sys.path.insert(0, absolute_plugin_path)
 
-from ssh_docker import async_setup  # noqa: E402
+from ssh_docker import async_setup, async_setup_entry  # noqa: E402
 from ssh_docker.const import (  # noqa: E402
     DOMAIN, SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
 )
 from ssh_docker.frontend import SshDockerPanelRegistration  # noqa: E402
+from homeassistant.config_entries import ConfigEntry  # noqa: E402
 
 
 class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
@@ -123,6 +124,154 @@ class TestSshDockerPanelRegistration(unittest.IsolatedAsyncioTestCase):
             any("already registered" in msg for msg in log_ctx.output),
             "Expected 'already registered' in debug log",
         )
+
+
+def _make_entry(service="my_container", host="192.168.1.100"):
+    """Build a minimal ConfigEntry for setup-entry tests."""
+    return ConfigEntry(
+        entry_id="test_entry_id",
+        data={"name": service, "service": service},
+        options={
+            "host": host,
+            "username": "user",
+            "password": "pass",
+            "docker_command": "docker",
+            "check_known_hosts": True,
+        },
+    )
+
+
+def _make_hass_for_setup():
+    """Build a minimal hass mock suitable for async_setup_entry tests."""
+    hass = MagicMock()
+    hass.data = {}
+    hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=None)
+    hass.async_create_task = MagicMock()
+    return hass
+
+
+class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
+    """Test async_setup_entry, specifically the docker_services availability check."""
+
+    async def test_setup_entry_proceeds_when_service_found_in_json_list(self):
+        """Setup succeeds when docker_services returns a JSON list containing the service."""
+        entry = _make_entry(service="my_container")
+        hass = _make_hass_for_setup()
+
+        async def mock_ssh_run(h, opts, cmd, timeout=60):
+            return '["my_container", "other_service"]', 0
+
+        with patch("ssh_docker._ssh_run", mock_ssh_run):
+            result = await async_setup_entry(hass, entry)
+
+        self.assertTrue(result)
+
+    async def test_setup_entry_proceeds_when_service_found_in_plain_list(self):
+        """Setup succeeds when docker_services returns a plain-text list containing the service."""
+        entry = _make_entry(service="my_container")
+        hass = _make_hass_for_setup()
+
+        async def mock_ssh_run(h, opts, cmd, timeout=60):
+            return "my_container other_service", 0
+
+        with patch("ssh_docker._ssh_run", mock_ssh_run):
+            result = await async_setup_entry(hass, entry)
+
+        self.assertTrue(result)
+
+    async def test_setup_entry_fails_when_service_absent_from_json_list(self):
+        """Setup fails when docker_services returns a JSON list that does not include the service."""
+        entry = _make_entry(service="removed_service")
+        hass = _make_hass_for_setup()
+
+        async def mock_ssh_run(h, opts, cmd, timeout=60):
+            return '["other_service", "another_service"]', 0
+
+        with patch("ssh_docker._ssh_run", mock_ssh_run):
+            result = await async_setup_entry(hass, entry)
+
+        self.assertFalse(result)
+
+    async def test_setup_entry_fails_when_service_absent_from_plain_list(self):
+        """Setup fails when docker_services returns a plain list that does not include the service."""
+        entry = _make_entry(service="removed_service")
+        hass = _make_hass_for_setup()
+
+        async def mock_ssh_run(h, opts, cmd, timeout=60):
+            return "other_service another_service", 0
+
+        with patch("ssh_docker._ssh_run", mock_ssh_run):
+            result = await async_setup_entry(hass, entry)
+
+        self.assertFalse(result)
+
+    async def test_setup_entry_proceeds_when_docker_services_not_present(self):
+        """Setup proceeds when docker_services is not found (empty output, non-zero exit)."""
+        entry = _make_entry(service="my_container")
+        hass = _make_hass_for_setup()
+
+        async def mock_ssh_run(h, opts, cmd, timeout=60):
+            # docker_services absent: if/elif both false → empty output, exit 1
+            return "", 1
+
+        with patch("ssh_docker._ssh_run", mock_ssh_run):
+            result = await async_setup_entry(hass, entry)
+
+        self.assertTrue(result)
+
+    async def test_setup_entry_proceeds_when_docker_services_returns_empty_output(self):
+        """Setup proceeds when docker_services produces empty output with exit 0."""
+        entry = _make_entry(service="my_container")
+        hass = _make_hass_for_setup()
+
+        async def mock_ssh_run(h, opts, cmd, timeout=60):
+            return "", 0
+
+        with patch("ssh_docker._ssh_run", mock_ssh_run):
+            result = await async_setup_entry(hass, entry)
+
+        self.assertTrue(result)
+
+    async def test_setup_entry_proceeds_on_ssh_error(self):
+        """Setup proceeds when SSH raises an exception (can't verify docker_services)."""
+        entry = _make_entry(service="my_container")
+        hass = _make_hass_for_setup()
+
+        async def mock_ssh_run(h, opts, cmd, timeout=60):
+            raise OSError("Connection refused")
+
+        with patch("ssh_docker._ssh_run", mock_ssh_run):
+            result = await async_setup_entry(hass, entry)
+
+        self.assertTrue(result)
+
+    async def test_setup_entry_proceeds_when_json_list_is_empty(self):
+        """Setup proceeds when docker_services returns a JSON empty list."""
+        entry = _make_entry(service="my_container")
+        hass = _make_hass_for_setup()
+
+        async def mock_ssh_run(h, opts, cmd, timeout=60):
+            return "[]", 0
+
+        with patch("ssh_docker._ssh_run", mock_ssh_run):
+            result = await async_setup_entry(hass, entry)
+
+        self.assertTrue(result)
+
+    async def test_setup_entry_does_not_create_coordinator_when_service_removed(self):
+        """No coordinator is stored in hass.data when setup fails due to removed service."""
+        entry = _make_entry(service="removed_service")
+        hass = _make_hass_for_setup()
+
+        async def mock_ssh_run(h, opts, cmd, timeout=60):
+            return '["other_service"]', 0
+
+        with patch("ssh_docker._ssh_run", mock_ssh_run):
+            result = await async_setup_entry(hass, entry)
+
+        self.assertFalse(result)
+        # hass.data should not contain the coordinator for this entry
+        self.assertNotIn(entry.entry_id, hass.data.get(DOMAIN, {}))
 
 
 if __name__ == "__main__":

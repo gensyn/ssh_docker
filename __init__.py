@@ -153,6 +153,19 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SSH Docker from a config entry."""
     _LOGGER.debug("Setting up config entry for container %s", entry.data.get(CONF_NAME))
+
+    # Fail setup if docker_services is present on the host and no longer lists
+    # this service in its output.
+    if not await _check_service_available(hass, entry):
+        service = entry.data.get(CONF_SERVICE, entry.data.get(CONF_NAME, ""))
+        _LOGGER.error(
+            "Service %s is no longer listed by %s on %s; refusing to set up entry",
+            service,
+            DOCKER_SERVICES_EXECUTABLE,
+            entry.options.get(CONF_HOST, "<unknown>"),
+        )
+        return False
+
     # Create (and store) the coordinator before platforms are loaded so that
     # both sensor and update platforms can retrieve it via hass.data.
     coordinator = SshDockerCoordinator(hass, entry)
@@ -167,6 +180,60 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("Unloading config entry for container %s", entry.data.get(CONF_NAME))
     hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
     return await hass.config_entries.async_unload_platforms(entry, _PLATFORMS)
+
+
+async def _check_service_available(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Return False only when docker_services runs successfully and omits this service.
+
+    Runs ``docker_services`` (without falling back to ``docker ps -a``) on the
+    remote host.  If the executable is absent, fails to run, or produces no
+    usable output the function returns ``True`` so that entry setup is not
+    blocked unnecessarily.  ``False`` is returned only when a non-empty service
+    list is retrieved and the service for this entry is absent from it.
+    """
+    options = entry.options
+    service = entry.data.get(CONF_SERVICE, entry.data.get(CONF_NAME, ""))
+    host = options.get(CONF_HOST, "<unknown>")
+
+    # Only run docker_services — do NOT fall back to docker ps so that an
+    # absent docker_services executable leaves setup unaffected.
+    check_cmd = (
+        f"if command -v {DOCKER_SERVICES_EXECUTABLE} >/dev/null 2>&1; then"
+        f" {DOCKER_SERVICES_EXECUTABLE};"
+        f" elif test -f /usr/bin/{DOCKER_SERVICES_EXECUTABLE}; then"
+        f" /usr/bin/{DOCKER_SERVICES_EXECUTABLE}; fi"
+    )
+
+    try:
+        output, exit_status = await _ssh_run(hass, options, check_cmd)
+    except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
+        _LOGGER.warning(
+            "Could not run %s on %s to verify service %s: %s",
+            DOCKER_SERVICES_EXECUTABLE, host, service, err,
+        )
+        return True
+
+    if exit_status != 0 or not output:
+        # docker_services not present or produced no output — proceed normally.
+        return True
+
+    try:
+        parsed = json.loads(output)
+        service_names = [str(s) for s in parsed if s] if isinstance(parsed, list) else []
+    except (json.JSONDecodeError, ValueError):
+        service_names = [s for s in output.replace(",", " ").split() if s]
+
+    if not service_names:
+        return True
+
+    if service in service_names:
+        return True
+
+    _LOGGER.warning(
+        "Service %s not found in %s output on %s. Available services: %s",
+        service, DOCKER_SERVICES_EXECUTABLE, host, service_names,
+    )
+    return False
 
 
 async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
