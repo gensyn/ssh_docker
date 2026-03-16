@@ -11,7 +11,7 @@ sys.path.insert(0, absolute_mock_path)
 absolute_plugin_path = str(Path(__file__).parent.parent.parent.absolute())
 sys.path.insert(0, absolute_plugin_path)
 
-from ssh_docker.sensor import DockerContainerSensor, STATE_UNAVAILABLE  # noqa: E402
+from ssh_docker.sensor import DockerContainerSensor, STATE_UNAVAILABLE, STATE_UNKNOWN  # noqa: E402
 from ssh_docker.const import (  # noqa: E402
     CONF_UPDATE_AVAILABLE, CONF_CREATED, CONF_IMAGE, CONF_AUTO_UPDATE,
     CONF_CHECK_FOR_UPDATES, DEFAULT_TIMEOUT,
@@ -51,6 +51,11 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
         """Clear the docker_create availability cache before each test."""
         import ssh_docker.sensor as sensor_module
         sensor_module._DOCKER_CREATE_CACHE.clear()
+
+    async def test_initial_state_is_unknown(self):
+        """Test that the initial state before any update is 'unknown'."""
+        sensor = _make_sensor()
+        self.assertEqual(sensor._attr_native_value, STATE_UNKNOWN)
 
     async def test_update_sets_running_state(self):
         """Test that a successful inspect returns the running state."""
