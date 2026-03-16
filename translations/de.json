@@ -16,6 +16,19 @@
           "docker_command": "Docker-Befehl",
           "check_for_updates": "Auf Updates prüfen",
           "auto_update": "Automatisch aktualisieren"
+        },
+        "data_description": {
+          "name": "Ein freundlicher Anzeigename für diesen Container in Home Assistant (z. B. Mein Webserver).",
+          "service": "Der genaue Containername auf dem entfernten Host, wie er durch `docker ps` angezeigt wird (z. B. mein_webserver).",
+          "host": "IP-Adresse oder Hostname des entfernten Rechners, auf dem Docker läuft.",
+          "username": "SSH-Benutzername für die Verbindung zum entfernten Host.",
+          "password": "SSH-Passwort. Leer lassen, wenn die Authentifizierung mit einer Schlüsseldatei erfolgt.",
+          "key_file": "Absoluter Pfad zur privaten SSH-Schlüsseldatei auf dem Home-Assistant-Rechner. Leer lassen, wenn die Authentifizierung mit einem Passwort erfolgt.",
+          "check_known_hosts": "Den entfernten Host vor dem Verbinden gegen eine known_hosts-Datei prüfen.",
+          "known_hosts": "Absoluter Pfad zur SSH-known_hosts-Datei auf dem Home-Assistant-Rechner.",
+          "docker_command": "Auf dem entfernten Host zu verwendendes Docker-Programm (z. B. `docker` oder `sudo docker`).",
+          "check_for_updates": "Regelmäßig prüfen, ob ein neueres Image für diesen Container verfügbar ist.",
+          "auto_update": "Den Container automatisch neu erstellen, wenn ein neueres Image verfügbar ist."
         }
       }
     },
@@ -47,6 +60,17 @@
           "docker_command": "Docker-Befehl",
           "check_for_updates": "Auf Updates prüfen",
           "auto_update": "Automatisch aktualisieren"
+        },
+        "data_description": {
+          "host": "IP-Adresse oder Hostname des entfernten Rechners, auf dem Docker läuft.",
+          "username": "SSH-Benutzername für die Verbindung zum entfernten Host.",
+          "password": "SSH-Passwort. Leer lassen, wenn die Authentifizierung mit einer Schlüsseldatei erfolgt.",
+          "key_file": "Absoluter Pfad zur privaten SSH-Schlüsseldatei auf dem Home-Assistant-Rechner. Leer lassen, wenn die Authentifizierung mit einem Passwort erfolgt.",
+          "check_known_hosts": "Den entfernten Host vor dem Verbinden gegen eine known_hosts-Datei prüfen.",
+          "known_hosts": "Absoluter Pfad zur SSH-known_hosts-Datei auf dem Home-Assistant-Rechner.",
+          "docker_command": "Auf dem entfernten Host zu verwendendes Docker-Programm (z. B. `docker` oder `sudo docker`).",
+          "check_for_updates": "Regelmäßig prüfen, ob ein neueres Image für diesen Container verfügbar ist.",
+          "auto_update": "Den Container automatisch neu erstellen, wenn ein neueres Image verfügbar ist."
         }
       }
     },

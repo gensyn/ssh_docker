@@ -16,6 +16,19 @@
           "docker_command": "Docker Command",
           "check_for_updates": "Check for Updates",
           "auto_update": "Auto Update"
+        },
+        "data_description": {
+          "name": "A friendly display name for this container in Home Assistant (e.g. My Web Server).",
+          "service": "The exact container name on the remote host, as shown by `docker ps` (e.g. my_web_server).",
+          "host": "IP address or hostname of the remote machine running Docker.",
+          "username": "SSH username used to connect to the remote host.",
+          "password": "SSH password. Leave empty if authenticating with a key file.",
+          "key_file": "Absolute path to the SSH private key file on the Home Assistant machine. Leave empty if authenticating with a password.",
+          "check_known_hosts": "Verify the remote host against a known_hosts file before connecting.",
+          "known_hosts": "Absolute path to the SSH known_hosts file on the Home Assistant machine.",
+          "docker_command": "Docker executable to use on the remote host (e.g. `docker` or `sudo docker`).",
+          "check_for_updates": "Periodically check whether a newer image is available for this container.",
+          "auto_update": "Automatically recreate the container when a newer image is available."
         }
       }
     },
@@ -47,6 +60,17 @@
           "docker_command": "Docker Command",
           "check_for_updates": "Check for Updates",
           "auto_update": "Auto Update"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the remote machine running Docker.",
+          "username": "SSH username used to connect to the remote host.",
+          "password": "SSH password. Leave empty if authenticating with a key file.",
+          "key_file": "Absolute path to the SSH private key file on the Home Assistant machine. Leave empty if authenticating with a password.",
+          "check_known_hosts": "Verify the remote host against a known_hosts file before connecting.",
+          "known_hosts": "Absolute path to the SSH known_hosts file on the Home Assistant machine.",
+          "docker_command": "Docker executable to use on the remote host (e.g. `docker` or `sudo docker`).",
+          "check_for_updates": "Periodically check whether a newer image is available for this container.",
+          "auto_update": "Automatically recreate the container when a newer image is available."
         }
       }
     },
