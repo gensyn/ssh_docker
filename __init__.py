@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
 
 import voluptuous as vol
@@ -29,6 +30,11 @@ _PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.UPDATE]
 _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)  # pylint: disable=invalid-name
+
+# Cache docker_services output per host to avoid redundant SSH calls when
+# many entries share the same remote host.  TTL matches the coordinator scan interval.
+_DOCKER_SERVICES_CACHE: dict[str, tuple[list[str] | None, float]] = {}
+_DOCKER_SERVICES_CACHE_TTL = 86400.0  # 24 hours
 
 SERVICE_ENTITY_SCHEMA = vol.Schema(
     {
@@ -190,10 +196,31 @@ async def _check_service_available(hass: HomeAssistant, entry: ConfigEntry) -> b
     usable output the function returns ``True`` so that entry setup is not
     blocked unnecessarily.  ``False`` is returned only when a non-empty service
     list is retrieved and the service for this entry is absent from it.
+
+    Results are cached per host for 24 hours so that multiple entries on the
+    same host only incur one SSH round-trip per startup / reload cycle.
     """
     options = entry.options
     service = entry.data.get(CONF_SERVICE, entry.data.get(CONF_NAME, ""))
     host = options.get(CONF_HOST, "<unknown>")
+
+    now = time.monotonic()
+    cached = _DOCKER_SERVICES_CACHE.get(host)
+    if cached is not None:
+        service_names, ts = cached
+        if now - ts < _DOCKER_SERVICES_CACHE_TTL:
+            _LOGGER.debug(
+                "Using cached %s output for host %s", DOCKER_SERVICES_EXECUTABLE, host
+            )
+            if not service_names:
+                return True
+            if service in service_names:
+                return True
+            _LOGGER.warning(
+                "Service %s not found in %s output on %s (cached). Available services: %s",
+                service, DOCKER_SERVICES_EXECUTABLE, host, service_names,
+            )
+            return False
 
     # Only run docker_services — do NOT fall back to docker ps so that an
     # absent docker_services executable leaves setup unaffected.
@@ -215,6 +242,8 @@ async def _check_service_available(hass: HomeAssistant, entry: ConfigEntry) -> b
 
     if exit_status != 0 or not output:
         # docker_services not present or produced no output — proceed normally.
+        # Cache None to avoid redundant SSH calls from other entries on this host.
+        _DOCKER_SERVICES_CACHE[host] = (None, now)
         return True
 
     try:
@@ -222,6 +251,8 @@ async def _check_service_available(hass: HomeAssistant, entry: ConfigEntry) -> b
         service_names = [str(s) for s in parsed if s] if isinstance(parsed, list) else []
     except (json.JSONDecodeError, ValueError):
         service_names = [s for s in output.replace(",", " ").split() if s]
+
+    _DOCKER_SERVICES_CACHE[host] = (service_names, now)
 
     if not service_names:
         return True
