@@ -26,6 +26,8 @@ SSH_CONF_ERROR = "error"
 SSH_CONF_EXIT_STATUS = "exit_status"
 
 SERVICE_CREATE = "create"
+SERVICE_RECREATE = "recreate"
+SERVICE_START = "start"
 SERVICE_RESTART = "restart"
 SERVICE_STOP = "stop"
 SERVICE_REMOVE = "remove"
