@@ -270,6 +270,48 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
         # async_request_refresh is called twice: once by sensor.async_update(), once as follow-up
         self.assertEqual(mock_refresh.call_count, 2)
 
+    async def test_auto_update_sets_recreating_pending_state(self):
+        """Test that auto-update sets a 'recreating' pending state before calling docker_create."""
+        options = {
+            "host": "192.168.1.100",
+            "username": "user",
+            "password": "pass",
+            "docker_command": "docker",
+            "check_known_hosts": True,
+            CONF_AUTO_UPDATE: True,
+            CONF_CHECK_FOR_UPDATES: True,
+        }
+        coordinator, sensor = _make_sensor(options=options)
+        call_count = 0
+        observed_pending_states = []
+
+        original_auto_recreate = coordinator._auto_recreate
+
+        async def mock_auto_recreate(*args, **kwargs):
+            observed_pending_states.append(coordinator._pending_state)
+            await original_auto_recreate(*args, **kwargs)
+
+        async def mock_ssh_run(hass, opts, command, timeout=DEFAULT_TIMEOUT):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return "running;2023-01-01T00:00:00Z;nginx:latest;sha256:old123", 0
+            if call_count == 2:
+                return "sha256:new456", 0
+            if call_count == 3:
+                return "found", 0
+            if call_count == 4:
+                return "", 0
+            if call_count == 5:
+                return "running;2023-01-01T00:00:00Z;nginx:latest;sha256:new456", 0
+            return "sha256:new456", 0
+
+        with patch.object(coordinator, "_auto_recreate", mock_auto_recreate):
+            with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
+                await sensor.async_update()
+
+        self.assertEqual(observed_pending_states, ["recreating"])
+
     async def test_auto_update_skips_when_docker_create_missing(self):
         """Test that auto-update logs a warning when docker_create is not found."""
         options = {
