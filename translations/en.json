@@ -100,6 +100,16 @@
           "description": "The entity ID of the docker container sensor."
         }
       }
+    },
+    "refresh": {
+      "name": "Refresh Docker Container Info",
+      "description": "Refreshes the sensor state for a docker container on the remote host.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "The entity ID of the docker container sensor."
+        }
+      }
     }
   },
   "entity": {
@@ -113,7 +123,8 @@
           "paused": "Paused",
           "restarting": "Restarting",
           "dead": "Dead",
-          "unavailable": "Unavailable"
+          "unavailable": "Unavailable",
+          "refreshing": "Refreshing"
         }
       }
     },
