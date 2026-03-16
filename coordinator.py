@@ -15,6 +15,7 @@ notified whenever state changes.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from datetime import timedelta
@@ -33,6 +34,7 @@ from .const import (
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS,
     DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
     DOCKER_CREATE_EXECUTABLE, DOCKER_CREATE_TIMEOUT, DOCKER_PULL_TIMEOUT,
+    DOCKER_SERVICES_EXECUTABLE,
     get_ssh_semaphore,
 )
 
@@ -47,6 +49,11 @@ STATE_UNKNOWN = "unknown"
 # many coordinators share the same remote host.  TTL matches the scan interval.
 _DOCKER_CREATE_CACHE: dict[str, tuple[bool, float]] = {}
 _DOCKER_CREATE_CACHE_TTL = _SCAN_INTERVAL.total_seconds()
+
+# Cache docker_services output per host to avoid redundant SSH calls when
+# many entries share the same remote host.  TTL matches the scan interval.
+_DOCKER_SERVICES_CACHE: dict[str, tuple[list[str] | None, float]] = {}
+_DOCKER_SERVICES_CACHE_TTL = _SCAN_INTERVAL.total_seconds()
 
 
 async def _ssh_run(
@@ -96,6 +103,86 @@ async def _ssh_run(
         exit_status,
     )
     return output, exit_status
+
+
+async def _check_service_available(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Return False only when docker_services runs successfully and omits this service.
+
+    Runs ``docker_services`` (without falling back to ``docker ps -a``) on the
+    remote host.  If the executable is absent, fails to run, or produces no
+    usable output the function returns ``True`` so that entry setup is not
+    blocked unnecessarily.  ``False`` is returned only when a non-empty service
+    list is retrieved and the service for this entry is absent from it.
+
+    Results are cached per host for the duration of the scan interval so that
+    multiple entries on the same host only incur one SSH round-trip per
+    startup / reload cycle.
+    """
+    options = entry.options
+    service = entry.data.get(CONF_SERVICE, entry.data.get(CONF_NAME, ""))
+    host = options.get(CONF_HOST, "<unknown>")
+
+    now = time.monotonic()
+    cached = _DOCKER_SERVICES_CACHE.get(host)
+    if cached is not None:
+        service_names, ts = cached
+        if now - ts < _DOCKER_SERVICES_CACHE_TTL:
+            _LOGGER.debug(
+                "Using cached %s output for host %s", DOCKER_SERVICES_EXECUTABLE, host
+            )
+            if not service_names:
+                return True
+            if service in service_names:
+                return True
+            _LOGGER.warning(
+                "Service %s not found in %s output on %s (cached). Available services: %s",
+                service, DOCKER_SERVICES_EXECUTABLE, host, service_names,
+            )
+            return False
+
+    # Only run docker_services — do NOT fall back to docker ps so that an
+    # absent docker_services executable leaves setup unaffected.
+    check_cmd = (
+        f"if command -v {DOCKER_SERVICES_EXECUTABLE} >/dev/null 2>&1; then"
+        f" {DOCKER_SERVICES_EXECUTABLE};"
+        f" elif test -f /usr/bin/{DOCKER_SERVICES_EXECUTABLE}; then"
+        f" /usr/bin/{DOCKER_SERVICES_EXECUTABLE}; fi"
+    )
+
+    try:
+        output, exit_status = await _ssh_run(hass, options, check_cmd)
+    except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
+        _LOGGER.warning(
+            "Could not run %s on %s to verify service %s: %s",
+            DOCKER_SERVICES_EXECUTABLE, host, service, err,
+        )
+        return True
+
+    if exit_status != 0 or not output:
+        # docker_services not present or produced no output — proceed normally.
+        # Cache None to avoid redundant SSH calls from other entries on this host.
+        _DOCKER_SERVICES_CACHE[host] = (None, now)
+        return True
+
+    try:
+        parsed = json.loads(output)
+        service_names = [str(s) for s in parsed if s] if isinstance(parsed, list) else []
+    except (json.JSONDecodeError, ValueError):
+        service_names = [s for s in output.replace(",", " ").split() if s]
+
+    _DOCKER_SERVICES_CACHE[host] = (service_names, now)
+
+    if not service_names:
+        return True
+
+    if service in service_names:
+        return True
+
+    _LOGGER.warning(
+        "Service %s not found in %s output on %s. Available services: %s",
+        service, DOCKER_SERVICES_EXECUTABLE, host, service_names,
+    )
+    return False
 
 
 class SshDockerCoordinator:

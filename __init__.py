@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 from typing import Any
 
 import voluptuous as vol
@@ -23,18 +22,13 @@ from .const import (
     DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     DOCKER_SERVICES_EXECUTABLE,
 )
-from .coordinator import SshDockerCoordinator, _ssh_run
+from .coordinator import SshDockerCoordinator, _ssh_run, _check_service_available
 from .frontend import SshDockerPanelRegistration
 
 _PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.UPDATE]
 _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)  # pylint: disable=invalid-name
-
-# Cache docker_services output per host to avoid redundant SSH calls when
-# many entries share the same remote host.  TTL matches the coordinator scan interval.
-_DOCKER_SERVICES_CACHE: dict[str, tuple[list[str] | None, float]] = {}
-_DOCKER_SERVICES_CACHE_TTL = 86400.0  # 24 hours
 
 SERVICE_ENTITY_SCHEMA = vol.Schema(
     {
@@ -186,85 +180,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("Unloading config entry for container %s", entry.data.get(CONF_NAME))
     hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
     return await hass.config_entries.async_unload_platforms(entry, _PLATFORMS)
-
-
-async def _check_service_available(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Return False only when docker_services runs successfully and omits this service.
-
-    Runs ``docker_services`` (without falling back to ``docker ps -a``) on the
-    remote host.  If the executable is absent, fails to run, or produces no
-    usable output the function returns ``True`` so that entry setup is not
-    blocked unnecessarily.  ``False`` is returned only when a non-empty service
-    list is retrieved and the service for this entry is absent from it.
-
-    Results are cached per host for 24 hours so that multiple entries on the
-    same host only incur one SSH round-trip per startup / reload cycle.
-    """
-    options = entry.options
-    service = entry.data.get(CONF_SERVICE, entry.data.get(CONF_NAME, ""))
-    host = options.get(CONF_HOST, "<unknown>")
-
-    now = time.monotonic()
-    cached = _DOCKER_SERVICES_CACHE.get(host)
-    if cached is not None:
-        service_names, ts = cached
-        if now - ts < _DOCKER_SERVICES_CACHE_TTL:
-            _LOGGER.debug(
-                "Using cached %s output for host %s", DOCKER_SERVICES_EXECUTABLE, host
-            )
-            if not service_names:
-                return True
-            if service in service_names:
-                return True
-            _LOGGER.warning(
-                "Service %s not found in %s output on %s (cached). Available services: %s",
-                service, DOCKER_SERVICES_EXECUTABLE, host, service_names,
-            )
-            return False
-
-    # Only run docker_services — do NOT fall back to docker ps so that an
-    # absent docker_services executable leaves setup unaffected.
-    check_cmd = (
-        f"if command -v {DOCKER_SERVICES_EXECUTABLE} >/dev/null 2>&1; then"
-        f" {DOCKER_SERVICES_EXECUTABLE};"
-        f" elif test -f /usr/bin/{DOCKER_SERVICES_EXECUTABLE}; then"
-        f" /usr/bin/{DOCKER_SERVICES_EXECUTABLE}; fi"
-    )
-
-    try:
-        output, exit_status = await _ssh_run(hass, options, check_cmd)
-    except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
-        _LOGGER.warning(
-            "Could not run %s on %s to verify service %s: %s",
-            DOCKER_SERVICES_EXECUTABLE, host, service, err,
-        )
-        return True
-
-    if exit_status != 0 or not output:
-        # docker_services not present or produced no output — proceed normally.
-        # Cache None to avoid redundant SSH calls from other entries on this host.
-        _DOCKER_SERVICES_CACHE[host] = (None, now)
-        return True
-
-    try:
-        parsed = json.loads(output)
-        service_names = [str(s) for s in parsed if s] if isinstance(parsed, list) else []
-    except (json.JSONDecodeError, ValueError):
-        service_names = [s for s in output.replace(",", " ").split() if s]
-
-    _DOCKER_SERVICES_CACHE[host] = (service_names, now)
-
-    if not service_names:
-        return True
-
-    if service in service_names:
-        return True
-
-    _LOGGER.warning(
-        "Service %s not found in %s output on %s. Available services: %s",
-        service, DOCKER_SERVICES_EXECUTABLE, host, service_names,
-    )
-    return False
 
 
 async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:

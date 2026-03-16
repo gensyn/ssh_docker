@@ -156,8 +156,8 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         """Clear the docker_services cache before each test."""
-        import ssh_docker as ssh_docker_module
-        ssh_docker_module._DOCKER_SERVICES_CACHE.clear()
+        import ssh_docker.coordinator as coord_module
+        coord_module._DOCKER_SERVICES_CACHE.clear()
 
     async def test_setup_entry_proceeds_when_service_found_in_json_list(self):
         """Setup succeeds when docker_services returns a JSON list containing the service."""
@@ -167,7 +167,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
         async def mock_ssh_run(h, opts, cmd, timeout=60):
             return '["my_container", "other_service"]', 0
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             result = await async_setup_entry(hass, entry)
 
         self.assertTrue(result)
@@ -180,7 +180,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
         async def mock_ssh_run(h, opts, cmd, timeout=60):
             return "my_container other_service", 0
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             result = await async_setup_entry(hass, entry)
 
         self.assertTrue(result)
@@ -193,7 +193,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
         async def mock_ssh_run(h, opts, cmd, timeout=60):
             return '["other_service", "another_service"]', 0
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             result = await async_setup_entry(hass, entry)
 
         self.assertFalse(result)
@@ -206,7 +206,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
         async def mock_ssh_run(h, opts, cmd, timeout=60):
             return "other_service another_service", 0
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             result = await async_setup_entry(hass, entry)
 
         self.assertFalse(result)
@@ -220,7 +220,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
             # docker_services absent: if/elif both false → empty output, exit 1
             return "", 1
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             result = await async_setup_entry(hass, entry)
 
         self.assertTrue(result)
@@ -233,7 +233,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
         async def mock_ssh_run(h, opts, cmd, timeout=60):
             return "", 0
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             result = await async_setup_entry(hass, entry)
 
         self.assertTrue(result)
@@ -246,7 +246,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
         async def mock_ssh_run(h, opts, cmd, timeout=60):
             raise OSError("Connection refused")
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             result = await async_setup_entry(hass, entry)
 
         self.assertTrue(result)
@@ -259,7 +259,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
         async def mock_ssh_run(h, opts, cmd, timeout=60):
             return "[]", 0
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             result = await async_setup_entry(hass, entry)
 
         self.assertTrue(result)
@@ -272,7 +272,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
         async def mock_ssh_run(h, opts, cmd, timeout=60):
             return '["other_service"]', 0
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             result = await async_setup_entry(hass, entry)
 
         self.assertFalse(result)
@@ -291,7 +291,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
             call_count += 1
             return '["svc1", "svc2"]', 0
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             await async_setup_entry(hass, entry1)
             await async_setup_entry(hass, entry2)
 
@@ -310,7 +310,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
             call_count += 1
             return '["svc"]', 0
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             await async_setup_entry(hass, entry_a)
             await async_setup_entry(hass, entry_b)
 
@@ -318,7 +318,7 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
 
     async def test_cache_expires_after_ttl(self):
         """An expired cache entry triggers a fresh SSH call."""
-        import ssh_docker as ssh_docker_module
+        import ssh_docker.coordinator as coord_module
         entry = _make_entry(service="svc", host="10.0.0.1")
         hass = _make_hass_for_setup()
         call_count = 0
@@ -328,27 +328,27 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
             call_count += 1
             return '["svc"]', 0
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             await async_setup_entry(hass, entry)
 
         self.assertEqual(call_count, 1)
 
         # Manually expire the cache entry
         host = entry.options["host"]
-        service_names, _ = ssh_docker_module._DOCKER_SERVICES_CACHE[host]
-        ssh_docker_module._DOCKER_SERVICES_CACHE[host] = (
+        service_names, _ = coord_module._DOCKER_SERVICES_CACHE[host]
+        coord_module._DOCKER_SERVICES_CACHE[host] = (
             service_names,
-            time.monotonic() - ssh_docker_module._DOCKER_SERVICES_CACHE_TTL - 1,
+            time.monotonic() - coord_module._DOCKER_SERVICES_CACHE_TTL - 1,
         )
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             await async_setup_entry(hass, entry)
 
         self.assertEqual(call_count, 2)
 
     async def test_cache_stores_none_when_docker_services_absent(self):
         """When docker_services is absent, None is cached and no second SSH call is made."""
-        import ssh_docker as ssh_docker_module
+        import ssh_docker.coordinator as coord_module
         entry1 = _make_entry(service="svc1", host="10.0.0.3")
         entry2 = _make_entry(service="svc2", host="10.0.0.3")
         hass = _make_hass_for_setup()
@@ -359,14 +359,14 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
             call_count += 1
             return "", 1  # docker_services not found
 
-        with patch("ssh_docker._ssh_run", mock_ssh_run):
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
             result1 = await async_setup_entry(hass, entry1)
             result2 = await async_setup_entry(hass, entry2)
 
         self.assertTrue(result1)
         self.assertTrue(result2)
         self.assertEqual(call_count, 1)
-        cached = ssh_docker_module._DOCKER_SERVICES_CACHE.get("10.0.0.3")
+        cached = coord_module._DOCKER_SERVICES_CACHE.get("10.0.0.3")
         self.assertIsNotNone(cached)
         self.assertIsNone(cached[0])  # None means "not found / no output"
 
