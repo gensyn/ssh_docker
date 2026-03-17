@@ -43,7 +43,8 @@
       "service_not_found": "Der Dienstname wurde auf dem entfernten Host nicht gefunden. Überprüfen Sie den Namen und stellen Sie sicher, dass der Container existiert."
     },
     "abort": {
-      "already_configured": "Dieser Docker-Container auf diesem Host ist bereits konfiguriert."
+      "already_configured": "Dieser Docker-Container auf diesem Host ist bereits konfiguriert.",
+      "already_in_progress": "Ein Einrichtungsvorgang für diesen Docker-Container auf diesem Host ist bereits aktiv."
     }
   },
   "options": {

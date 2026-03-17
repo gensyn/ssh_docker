@@ -190,8 +190,13 @@ class SshDockerConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "already_configured"
             else:
                 # unique_id is based on host+service to prevent adding the same
-                # container on the same host twice
-                await self.async_set_unique_id(f"{user_input[CONF_HOST]}_{service}")
+                # container on the same host twice.  raise_on_progress=False lets
+                # the user manually add a service even when a discovery flow for
+                # the same host+service is already in progress, instead of
+                # aborting with an unhelpful "already_in_progress" error.
+                await self.async_set_unique_id(
+                    f"{user_input[CONF_HOST]}_{service}", raise_on_progress=False
+                )
                 self._abort_if_unique_id_configured()
 
                 options, error_key = await validate_and_build_options(self.hass, user_input)

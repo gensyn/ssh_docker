@@ -73,8 +73,10 @@ class ConfigFlow:
         """Return current entries."""
         return []
 
-    async def async_set_unique_id(self, unique_id):
+    async def async_set_unique_id(self, unique_id, *, raise_on_progress=True):
         """Set the unique ID for this flow."""
+        if raise_on_progress and getattr(self, "_force_abort_already_in_progress", False):
+            raise AbortFlowException("already_in_progress")
         self._unique_id = unique_id
 
     def _abort_if_unique_id_configured(self):

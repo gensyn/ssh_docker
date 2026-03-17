@@ -160,6 +160,33 @@ class TestSshDockerConfigFlow(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(ctx.exception.reason, "already_configured")
 
+    async def test_manual_add_succeeds_when_discovery_flow_in_progress(self):
+        """Test that manually adding a service succeeds even when a discovery flow for
+        the same host+service is already in progress (raise_on_progress=False)."""
+        flow = self._make_flow()
+        # Simulate a discovery flow in progress for the same unique_id
+        flow._force_abort_already_in_progress = True
+        user_input = {
+            CONF_NAME: "My Container",
+            CONF_SERVICE: "my_container",
+            "host": "192.168.1.100",
+            "username": "user",
+            "password": "pass",
+        }
+
+        with unittest.mock.patch(
+            "ssh_docker.config_flow.validate_and_build_options",
+            new=AsyncMock(return_value=({"host": "192.168.1.100"}, None)),
+        ), unittest.mock.patch(
+            "ssh_docker.config_flow._check_service_exists",
+            new=AsyncMock(return_value=None),
+        ):
+            result = await flow.async_step_user(user_input)
+
+        # Should create the entry, not abort with already_in_progress
+        self.assertEqual(result["type"], "create_entry")
+        self.assertEqual(result["data"][CONF_SERVICE], "my_container")
+
     async def test_shows_error_when_name_already_used(self):
         """Test that an error is shown when the friendly name is already in use."""
         flow = self._make_flow()
