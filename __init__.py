@@ -10,7 +10,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, SOURCE_DISCOVERY
 from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_NAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ServiceValidationError, HomeAssistantError
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry
 from homeassistant.helpers.typing import ConfigType
 
@@ -199,7 +199,7 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
     try:
         output, exit_status = await _ssh_run(hass, options, discover_cmd)
-    except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
+    except Exception as err:  # pylint: disable=broad-except
         _LOGGER.warning("Service discovery on %s failed: %s", host, err)
         return
 

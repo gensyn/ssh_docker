@@ -15,7 +15,7 @@ from .const import (
     CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES,
     DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_AUTO_UPDATE,
-    DEFAULT_CHECK_FOR_UPDATES,
+    DEFAULT_CHECK_FOR_UPDATES, DEFAULT_TIMEOUT,
     SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE, SSH_CONF_EXIT_STATUS,
 )
 
@@ -43,6 +43,7 @@ async def validate_and_build_options(
         CONF_USERNAME: user_input[CONF_USERNAME],
         "check_known_hosts": user_input.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
         "command": f"{docker_cmd} ps -q",
+        "timeout": DEFAULT_TIMEOUT,
     }
     if has_password:
         service_data[CONF_PASSWORD] = user_input[CONF_PASSWORD]

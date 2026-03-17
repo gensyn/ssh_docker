@@ -66,9 +66,6 @@ def get_ssh_semaphore(host: str) -> asyncio.Semaphore:
     return _SSH_HOST_SEMAPHORES[host]
 
 
-# Keep the old name as an alias so existing imports in tests don't break.
-# New code should use get_ssh_semaphore(host) instead.
-_SSH_SEMAPHORE = asyncio.Semaphore(10)  # legacy – no longer used internally
 
 URL_BASE = "/ssh_docker"
 SSH_DOCKER_CARDS = [
