@@ -22,7 +22,7 @@ from .const import (
     DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     DOCKER_SERVICES_EXECUTABLE,
 )
-from .coordinator import SshDockerCoordinator, _ssh_run
+from .coordinator import SshDockerCoordinator, _ssh_run, _check_service_available
 from .frontend import SshDockerPanelRegistration
 
 _PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.UPDATE]
@@ -153,6 +153,19 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SSH Docker from a config entry."""
     _LOGGER.debug("Setting up config entry for container %s", entry.data.get(CONF_NAME))
+
+    # Fail setup if docker_services is present on the host and no longer lists
+    # this service in its output.
+    if not await _check_service_available(hass, entry):
+        service = entry.data.get(CONF_SERVICE, entry.data.get(CONF_NAME, ""))
+        _LOGGER.error(
+            "Service %s is no longer listed by %s on %s; refusing to set up entry",
+            service,
+            DOCKER_SERVICES_EXECUTABLE,
+            entry.options.get(CONF_HOST, "<unknown>"),
+        )
+        return False
+
     # Create (and store) the coordinator before platforms are loaded so that
     # both sensor and update platforms can retrieve it via hass.data.
     coordinator = SshDockerCoordinator(hass, entry)
