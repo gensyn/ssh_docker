@@ -51,28 +51,28 @@ class TestDockerContainerUpdateEntity(unittest.TestCase):
         self.assertIsNone(entity._attr_installed_version)
         self.assertIsNone(entity._attr_latest_version)
 
-    def test_set_update_state_no_update(self):
+    def test__set_update_state_no_update(self):
         """When update_available=False the installed and latest version should match."""
         entity, _ = _make_update_entity()
-        entity.set_update_state(False, "sha256:abc123456789def0", None)
+        entity._set_update_state(False, "sha256:abc123456789def0", None)
         self.assertEqual(entity._attr_installed_version, "abc123456789")
         self.assertEqual(entity._attr_latest_version, "abc123456789")
 
-    def test_set_update_state_update_available(self):
+    def test__set_update_state_update_available(self):
         """When update_available=True the latest version should differ from installed."""
         entity, _ = _make_update_entity()
-        entity.set_update_state(True, "sha256:abc123456789def0", "sha256:def456789012abc0")
+        entity._set_update_state(True, "sha256:abc123456789def0", "sha256:def456789012abc0")
         self.assertEqual(entity._attr_installed_version, "abc123456789")
         self.assertEqual(entity._attr_latest_version, "def456789012")
         self.assertNotEqual(entity._attr_latest_version, entity._attr_installed_version)
 
-    def test_set_update_state_unavailable_clears_versions(self):
+    def test__set_update_state_unavailable_clears_versions(self):
         """When the container is unreachable (installed_image_id=None) both versions become None."""
         entity, _ = _make_update_entity()
         # First mark an update as available...
-        entity.set_update_state(True, "sha256:abc123456789def0", "sha256:def456789012abc0")
+        entity._set_update_state(True, "sha256:abc123456789def0", "sha256:def456789012abc0")
         # ...then mark the container as unreachable
-        entity.set_update_state(False, None)
+        entity._set_update_state(False, None)
         self.assertIsNone(entity._attr_installed_version)
         self.assertIsNone(entity._attr_latest_version)
 
@@ -97,11 +97,11 @@ class TestDockerContainerUpdateEntity(unittest.TestCase):
         entity, _ = _make_update_entity()
         self.assertIn((DOMAIN, "test_id"), entity._attr_device_info.identifiers)
 
-    def test_set_update_state_writes_ha_state(self):
-        """set_update_state should call async_write_ha_state."""
+    def test__set_update_state_writes_ha_state(self):
+        """_set_update_state should call async_write_ha_state."""
         entity, _ = _make_update_entity()
         with patch.object(entity, "async_write_ha_state") as mock_write:
-            entity.set_update_state(True, "sha256:abc123456789def0", "sha256:def456789012abc0")
+            entity._set_update_state(True, "sha256:abc123456789def0", "sha256:def456789012abc0")
         mock_write.assert_called_once()
 
     def test_coordinator_listener_updates_state(self):

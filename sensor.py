@@ -75,7 +75,7 @@ class DockerContainerSensor(SensorEntity):
     @property
     def native_value(self) -> str:
         """Return current state, preferring coordinator's pending state when set."""
-        return self.coordinator._pending_state or self.coordinator.data.get(
+        return self.coordinator.pending_state or self.coordinator.data.get(
             "state", STATE_UNKNOWN
         )
 

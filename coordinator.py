@@ -19,7 +19,8 @@ import json
 import logging
 import time
 from datetime import timedelta
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_USERNAME, CONF_PASSWORD
@@ -151,7 +152,7 @@ async def _check_service_available(hass: HomeAssistant, entry: ConfigEntry) -> b
 
     try:
         output, exit_status = await _ssh_run(hass, options, check_cmd)
-    except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
+    except Exception as err:  # pylint: disable=broad-except
         _LOGGER.warning(
             "Could not run %s on %s to verify service %s: %s",
             DOCKER_SERVICES_EXECUTABLE, host, service, err,
@@ -233,6 +234,11 @@ class SshDockerCoordinator:
     # Transitional / pending state
     # ------------------------------------------------------------------
 
+    @property
+    def pending_state(self) -> str | None:
+        """Return the current transitional state, or ``None`` when not set."""
+        return self._pending_state
+
     def set_pending_state(self, state: str) -> None:
         """Set a transitional state and immediately notify all listeners.
 
@@ -269,7 +275,7 @@ class SshDockerCoordinator:
         )
         try:
             output, exit_status = await _ssh_run(self.hass, options, info_cmd)
-        except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
+        except Exception as err:  # pylint: disable=broad-except
             _LOGGER.warning("Failed to inspect container %s: %s", service, err)
             self.data = {
                 "state": STATE_UNAVAILABLE,
@@ -345,7 +351,7 @@ class SshDockerCoordinator:
                         service,
                         image_name,
                     )
-            except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
+            except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.debug(
                     "Could not check for image updates for %s: %s", service, err
                 )
@@ -522,7 +528,7 @@ class SshDockerCoordinator:
         try:
             output, _ = await _ssh_run(self.hass, options, check_cmd)
             result = output.strip() == "found"
-        except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
+        except Exception as err:  # pylint: disable=broad-except
             _LOGGER.debug("Could not check for docker_create on host: %s", err)
             result = False
 
@@ -542,9 +548,9 @@ class SshDockerCoordinator:
             )
             return
         create_cmd = (
-            f"command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1"
-            f" && {DOCKER_CREATE_EXECUTABLE} {name}"
-            f" || /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}"
+            f"if command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1;"
+            f" then {DOCKER_CREATE_EXECUTABLE} {name};"
+            f" else /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}; fi"
         )
         try:
             _, exit_status = await _ssh_run(self.hass, options, create_cmd)
@@ -552,5 +558,5 @@ class SshDockerCoordinator:
                 _LOGGER.warning("Auto-update: docker_create failed for %s", name)
                 return
             _LOGGER.info("Auto-update: recreated container %s", name)
-        except (ServiceValidationError, HomeAssistantError, Exception) as err:  # pylint: disable=broad-except
+        except Exception as err:  # pylint: disable=broad-except
             _LOGGER.warning("Auto-update failed for %s: %s", name, err)

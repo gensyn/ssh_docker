@@ -88,13 +88,13 @@ class DockerContainerUpdateEntity(UpdateEntity):
     def _handle_coordinator_update(self) -> None:
         """Propagate coordinator data changes to the update entity."""
         data = self.coordinator.data
-        self.set_update_state(
+        self._set_update_state(
             data.get("update_available", False),
             data.get("installed_image_id"),
             data.get("latest_image_id"),
         )
 
-    def set_update_state(
+    def _set_update_state(
             self,
             update_available: bool,
             installed_image_id: str | None,
