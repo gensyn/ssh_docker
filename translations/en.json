@@ -43,7 +43,8 @@
       "service_not_found": "The service name was not found on the remote host. Check the name and make sure the container exists."
     },
     "abort": {
-      "already_configured": "This docker container on this host is already configured."
+      "already_configured": "This docker container on this host is already configured.",
+      "already_in_progress": "A setup flow for this docker container on this host is already in progress."
     }
   },
   "options": {
