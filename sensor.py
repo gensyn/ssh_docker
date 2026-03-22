@@ -99,11 +99,19 @@ class DockerContainerSensor(SensorEntity):
         self.coordinator.set_pending_state("initializing")
 
         _host = self.entry.options.get(CONF_HOST, "")
-        _same_host_count = sum(
-            1 for e in self.hass.config_entries.async_entries(DOMAIN)
-            if e.options.get(CONF_HOST, "") == _host
-        )
-        stagger_secs = abs(hash(self.entry.entry_id)) % max(_same_host_count, 1)
+
+        # Stagger only applies during HA startup, to spread SSH load across all
+        # entries on the same host.  When HA is already running (e.g. a new entry
+        # was added at runtime), skip the stagger so the container initializes
+        # immediately instead of waiting up to N-1 seconds.
+        if self.hass.state == CoreState.running:
+            stagger_secs = 0
+        else:
+            _same_host_count = sum(
+                1 for e in self.hass.config_entries.async_entries(DOMAIN)
+                if e.options.get(CONF_HOST, "") == _host
+            )
+            stagger_secs = abs(hash(self.entry.entry_id)) % max(_same_host_count, 1)
 
         async def _staggered_update(_event=None):
             if stagger_secs > 0:

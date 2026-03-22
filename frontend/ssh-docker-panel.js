@@ -257,6 +257,11 @@ class SshDockerPanel extends HTMLElement {
       (c) => c.attributes && c.attributes.update_available === true
     ).length;
 
+    // If the active filter no longer has any containers, fall back to "all".
+    if (this._filter !== "all" && (counts[this._filter] === 0 || counts[this._filter] === undefined)) {
+      this._filter = "all";
+    }
+
     const filterKeys = ["all", ...states, "update_available"];
     const filterLabels = { update_available: this._t("updates_filter") };
     const filterButtons = filterKeys
