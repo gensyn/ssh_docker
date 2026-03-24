@@ -232,6 +232,15 @@ class SshDockerCard extends HTMLElement {
     refreshBtn.textContent = "↺ Refresh";
     refreshBtn.setAttribute("aria-label", "Refresh logs");
 
+    const autoLabel = document.createElement("label");
+    autoLabel.style.cssText = "display:flex;align-items:center;gap:4px;font-size:0.78em;color:var(--primary-text-color,#212121);cursor:pointer;flex-shrink:0;white-space:nowrap;user-select:none;";
+    const autoCheckbox = document.createElement("input");
+    autoCheckbox.type = "checkbox";
+    autoCheckbox.style.cssText = "cursor:pointer;margin:0;";
+    autoCheckbox.setAttribute("aria-label", "Auto-refresh every 5 seconds");
+    autoLabel.appendChild(autoCheckbox);
+    autoLabel.appendChild(document.createTextNode(" Auto 5s"));
+
     const timestamp = document.createElement("span");
     timestamp.style.cssText = "font-size:0.72em;color:var(--secondary-text-color,#727272);flex-shrink:0;white-space:nowrap;";
 
@@ -241,6 +250,7 @@ class SshDockerCard extends HTMLElement {
     closeBtn.setAttribute("aria-label", "Close");
     header.appendChild(title);
     header.appendChild(timestamp);
+    header.appendChild(autoLabel);
     header.appendChild(refreshBtn);
     header.appendChild(closeBtn);
 
@@ -258,7 +268,13 @@ class SshDockerCard extends HTMLElement {
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
+    let feedbackTimer = null;
+    let autoRefreshInterval = null;
+    let isFetching = false;
+
     const fetchLogs = async () => {
+      if (isFetching) return;
+      isFetching = true;
       refreshBtn.disabled = true;
       refreshBtn.textContent = "↻ …";
       refreshBtn.style.background = "#7f8c8d";
@@ -275,20 +291,31 @@ class SshDockerCard extends HTMLElement {
         pre.textContent = logs.trim() || "(no output)";
         // Scroll to bottom so latest log entries are visible.
         pre.scrollTop = pre.scrollHeight;
-        // Visual feedback: briefly flash green to confirm the refresh completed.
-        refreshBtn.textContent = "✓ Updated";
-        refreshBtn.style.background = "#27ae60";
         const now = new Date();
         timestamp.textContent = now.toLocaleTimeString();
-        feedbackTimer = setTimeout(() => {
-          feedbackTimer = null;
+        if (autoCheckbox.checked) {
+          // Auto-refresh mode: skip the green flash, restore the button immediately.
+          isFetching = false;
           refreshBtn.textContent = "↺ Refresh";
           refreshBtn.style.background = "#2c3e50";
           refreshBtn.setAttribute("aria-label", "Refresh logs");
           refreshBtn.disabled = false;
-        }, 1500);
+        } else {
+          // Manual refresh: briefly flash green to confirm the refresh completed.
+          refreshBtn.textContent = "✓ Updated";
+          refreshBtn.style.background = "#27ae60";
+          feedbackTimer = setTimeout(() => {
+            feedbackTimer = null;
+            isFetching = false;
+            refreshBtn.textContent = "↺ Refresh";
+            refreshBtn.style.background = "#2c3e50";
+            refreshBtn.setAttribute("aria-label", "Refresh logs");
+            refreshBtn.disabled = false;
+          }, 1500);
+        }
       } catch (err) {
         pre.textContent = "Error fetching logs: " + err;
+        isFetching = false;
         refreshBtn.textContent = "↺ Refresh";
         refreshBtn.style.background = "#2c3e50";
         refreshBtn.setAttribute("aria-label", "Refresh logs");
@@ -296,8 +323,24 @@ class SshDockerCard extends HTMLElement {
       }
     };
 
-    let feedbackTimer = null;
+    const stopAutoRefresh = () => {
+      if (autoRefreshInterval !== null) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+      }
+    };
+
+    autoCheckbox.addEventListener("change", () => {
+      if (autoCheckbox.checked) {
+        fetchLogs();
+        autoRefreshInterval = setInterval(fetchLogs, 5000);
+      } else {
+        stopAutoRefresh();
+      }
+    });
+
     const closeOverlay = () => {
+      stopAutoRefresh();
       if (feedbackTimer !== null) {
         clearTimeout(feedbackTimer);
         feedbackTimer = null;
