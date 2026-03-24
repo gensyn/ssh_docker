@@ -217,16 +217,31 @@ class SshDockerCard extends HTMLElement {
     ].join(";");
 
     const header = document.createElement("div");
-    header.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:12px;";
+    header.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:8px;";
     const title = document.createElement("h2");
     title.style.cssText = "margin:0;font-size:1.1rem;color:var(--primary-text-color,#212121);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
     title.textContent = "📋 " + containerName;
+
+    const refreshBtn = document.createElement("button");
+    refreshBtn.style.cssText = [
+      "padding:4px 12px", "border:none", "border-radius:12px", "cursor:pointer",
+      "font-size:0.82em", "font-family:inherit", "font-weight:500",
+      "background:#2c3e50", "color:white", "flex-shrink:0",
+      "transition:background 0.3s",
+    ].join(";");
+    refreshBtn.textContent = "↺ Refresh";
+    refreshBtn.setAttribute("aria-label", "Refresh logs");
+
+    const timestamp = document.createElement("span");
+    timestamp.style.cssText = "font-size:0.72em;color:var(--secondary-text-color,#727272);flex-shrink:0;white-space:nowrap;";
+
     const closeBtn = document.createElement("button");
     closeBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:1.4rem;line-height:1;color:var(--primary-text-color,#212121);flex-shrink:0;padding:0;";
     closeBtn.textContent = "✕";
     closeBtn.setAttribute("aria-label", "Close");
-    closeBtn.addEventListener("click", () => overlay.remove());
     header.appendChild(title);
+    header.appendChild(timestamp);
+    header.appendChild(refreshBtn);
     header.appendChild(closeBtn);
 
     const pre = document.createElement("pre");
@@ -243,25 +258,60 @@ class SshDockerCard extends HTMLElement {
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
+    const fetchLogs = async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = "↻ …";
+      refreshBtn.style.background = "#7f8c8d";
+      refreshBtn.setAttribute("aria-label", "Loading logs");
+      try {
+        const result = await this._hass.connection.sendMessagePromise({
+          type: "call_service",
+          domain: "ssh_docker",
+          service: "get_logs",
+          service_data: { entity_id: entityId },
+          return_response: true,
+        });
+        const logs = (result?.response?.logs) ?? "";
+        pre.textContent = logs.trim() || "(no output)";
+        // Scroll to bottom so latest log entries are visible.
+        pre.scrollTop = pre.scrollHeight;
+        // Visual feedback: briefly flash green to confirm the refresh completed.
+        refreshBtn.textContent = "✓ Updated";
+        refreshBtn.style.background = "#27ae60";
+        const now = new Date();
+        timestamp.textContent = now.toLocaleTimeString();
+        feedbackTimer = setTimeout(() => {
+          feedbackTimer = null;
+          refreshBtn.textContent = "↺ Refresh";
+          refreshBtn.style.background = "#2c3e50";
+          refreshBtn.setAttribute("aria-label", "Refresh logs");
+          refreshBtn.disabled = false;
+        }, 1500);
+      } catch (err) {
+        pre.textContent = "Error fetching logs: " + err;
+        refreshBtn.textContent = "↺ Refresh";
+        refreshBtn.style.background = "#2c3e50";
+        refreshBtn.setAttribute("aria-label", "Refresh logs");
+        refreshBtn.disabled = false;
+      }
+    };
+
+    let feedbackTimer = null;
+    const closeOverlay = () => {
+      if (feedbackTimer !== null) {
+        clearTimeout(feedbackTimer);
+        feedbackTimer = null;
+      }
+      overlay.remove();
+    };
+
+    closeBtn.addEventListener("click", closeOverlay);
     overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.remove();
+      if (e.target === overlay) closeOverlay();
     });
 
-    try {
-      const result = await this._hass.connection.sendMessagePromise({
-        type: "call_service",
-        domain: "ssh_docker",
-        service: "get_logs",
-        service_data: { entity_id: entityId },
-        return_response: true,
-      });
-      const logs = (result?.response?.logs) ?? "";
-      pre.textContent = logs.trim() || "(no output)";
-      // Scroll to bottom so latest log entries are visible.
-      pre.scrollTop = pre.scrollHeight;
-    } catch (err) {
-      pre.textContent = "Error fetching logs: " + err;
-    }
+    refreshBtn.addEventListener("click", fetchLogs);
+    await fetchLogs();
   }
 
   getCardSize() {
