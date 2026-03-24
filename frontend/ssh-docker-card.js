@@ -85,6 +85,7 @@ class SshDockerCard extends HTMLElement {
     const showStop     = !isTransitional && state === "running";
     const showRemove   = !isTransitional && state !== "unavailable" && state !== "unknown";
     const showRefresh  = state !== "refreshing";
+    const showLogs     = state !== "unavailable" && state !== "unknown";
 
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
@@ -93,6 +94,7 @@ class SshDockerCard extends HTMLElement {
       showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">${this._t("btn_stop")}</button>`    : "",
       showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">${this._t("btn_remove")}</button>`  : "",
       showRefresh ? `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>` : "",
+      showLogs    ? `<button class="action-btn logs-btn"    data-action="logs"    data-entity="${entityId}">${this._t("btn_logs")}</button>`    : "",
     ].filter(Boolean).join("");
 
     this.shadowRoot.innerHTML = `
@@ -159,6 +161,7 @@ class SshDockerCard extends HTMLElement {
         .stop-btn    { background: #e67e22; }
         .remove-btn  { background: #e74c3c; }
         .refresh-btn { background: #7f8c8d; }
+        .logs-btn    { background: #2c3e50; }
       </style>
       <ha-card>
         <div class="card-header">
@@ -178,10 +181,87 @@ class SshDockerCard extends HTMLElement {
     `;
 
     this.shadowRoot.querySelectorAll(".action-btn").forEach((btn) => {
-      btn.addEventListener("click", () =>
-        this._handleAction(btn.dataset.action, btn.dataset.entity)
-      );
+      if (btn.dataset.action === "logs") {
+        btn.addEventListener("click", () =>
+          this._showLogs(btn.dataset.entity)
+        );
+      } else {
+        btn.addEventListener("click", () =>
+          this._handleAction(btn.dataset.action, btn.dataset.entity)
+        );
+      }
     });
+  }
+
+  async _showLogs(entityId) {
+    if (!this._hass) return;
+    const entity = this._hass.states[entityId];
+    const containerName = (entity && entity.attributes && entity.attributes.name) || entityId;
+
+    // Remove any existing overlay.
+    const existing = document.getElementById("ssh-docker-logs-overlay");
+    if (existing) existing.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "ssh-docker-logs-overlay";
+    overlay.style.cssText = [
+      "position:fixed", "inset:0", "background:rgba(0,0,0,0.7)",
+      "z-index:9999", "display:flex", "align-items:center", "justify-content:center",
+    ].join(";");
+
+    const dialog = document.createElement("div");
+    dialog.style.cssText = [
+      "background:var(--card-background-color,#fff)", "border-radius:8px",
+      "padding:24px", "max-width:90vw", "width:860px", "max-height:85vh",
+      "display:flex", "flex-direction:column", "gap:12px", "box-sizing:border-box",
+    ].join(";");
+
+    const header = document.createElement("div");
+    header.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:12px;";
+    const title = document.createElement("h2");
+    title.style.cssText = "margin:0;font-size:1.1rem;color:var(--primary-text-color,#212121);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    title.textContent = "📋 " + containerName;
+    const closeBtn = document.createElement("button");
+    closeBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:1.4rem;line-height:1;color:var(--primary-text-color,#212121);flex-shrink:0;padding:0;";
+    closeBtn.textContent = "✕";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.addEventListener("click", () => overlay.remove());
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    const pre = document.createElement("pre");
+    pre.style.cssText = [
+      "overflow:auto", "flex:1", "min-height:200px", "max-height:65vh",
+      "background:#1a1a2e", "color:#e0e0e0", "padding:12px",
+      "border-radius:4px", "font-size:0.8em", "white-space:pre-wrap",
+      "word-break:break-all", "margin:0",
+    ].join(";");
+    pre.textContent = "Fetching logs…";
+
+    dialog.appendChild(header);
+    dialog.appendChild(pre);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    try {
+      const result = await this._hass.connection.sendMessagePromise({
+        type: "call_service",
+        domain: "ssh_docker",
+        service: "get_logs",
+        service_data: { entity_id: entityId },
+        return_response: true,
+      });
+      const logs = (result?.response?.logs) ?? "";
+      pre.textContent = logs.trim() || "(no output)";
+      // Scroll to bottom so latest log entries are visible.
+      pre.scrollTop = pre.scrollHeight;
+    } catch (err) {
+      pre.textContent = "Error fetching logs: " + err;
+    }
   }
 
   getCardSize() {

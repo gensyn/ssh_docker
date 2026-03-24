@@ -392,6 +392,21 @@ class SshDockerCoordinator:
     # Action methods (called by services and update entity install)
     # ------------------------------------------------------------------
 
+    async def get_logs(self) -> str:
+        """Fetch recent container logs via SSH (last 200 lines, stdout + stderr)."""
+        options = dict(self.entry.options)
+        docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
+        name = self._service
+        _LOGGER.debug("Fetching logs for container %s", name)
+        output, exit_status = await _ssh_run(
+            self.hass, options, f"{docker_cmd} logs --tail 200 {name} 2>&1"
+        )
+        if exit_status != 0:
+            _LOGGER.warning(
+                "docker logs for container %s returned exit status %d", name, exit_status
+            )
+        return output
+
     async def restart(self) -> None:
         """Restart the container."""
         options = dict(self.entry.options)
