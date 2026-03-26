@@ -438,10 +438,10 @@ class TestAsyncAddedToHass(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sensor.native_value, "initializing")
 
     async def test_no_stagger_when_ha_already_running(self):
-        """When HA is already running, the first refresh should not be staggered.
+        """When HA is already running, the first refresh must be immediate (no sleep).
 
         Even when many entries share the same host, a new entry added at runtime
-        must initialize immediately (stagger_secs == 0) instead of waiting.
+        must initialize immediately without any stagger delay.
         """
         options = {
             "host": "192.168.1.100",
