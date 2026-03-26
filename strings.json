@@ -197,7 +197,7 @@
       "logs_auto_label": { "name": "Auto 5s" },
       "logs_fetching": { "name": "Fetching logs…" },
       "logs_no_output": { "name": "(no output)" },
-      "logs_fetch_error": { "name": "Error fetching logs: " },
+      "logs_fetch_error": { "name": "Error fetching logs:" },
       "unknown_host": { "name": "Unknown Host" },
       "all_states": { "name": "All states" },
       "updates_filter": { "name": "⬆ Updates" },

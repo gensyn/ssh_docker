@@ -197,7 +197,7 @@
       "logs_auto_label": { "name": "Auto 5s" },
       "logs_fetching": { "name": "Protokoll wird abgerufen…" },
       "logs_no_output": { "name": "(keine Ausgabe)" },
-      "logs_fetch_error": { "name": "Fehler beim Abrufen des Protokolls: " },
+      "logs_fetch_error": { "name": "Fehler beim Abrufen des Protokolls:" },
       "unknown_host": { "name": "Unbekannter Host" },
       "all_states": { "name": "Alle Zustände" },
       "updates_filter": { "name": "⬆ Updates" },

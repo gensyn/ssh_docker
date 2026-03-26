@@ -62,7 +62,6 @@ async def _ssh_run(
     options: dict[str, Any],
     command: str,
     timeout: int = DEFAULT_TIMEOUT,
-    bypass_semaphore: bool = False,
 ) -> tuple[str, int]:
     """Execute a command via ssh_command service.  Returns (stdout, exit_status).
 
@@ -97,11 +96,8 @@ async def _ssh_run(
             return_response=True,
         )
 
-    if bypass_semaphore:
+    async with get_ssh_semaphore(options[CONF_HOST]):
         response = await _call()
-    else:
-        async with get_ssh_semaphore(options[CONF_HOST]):
-            response = await _call()
     output = (response or {}).get(SSH_CONF_OUTPUT, "").strip()
     exit_status = (response or {}).get(SSH_CONF_EXIT_STATUS, 1)
     # asyncssh returns None for signal-based terminations; normalize to -1
@@ -410,8 +406,7 @@ class SshDockerCoordinator:
         output, exit_status = await _ssh_run(
             self.hass,
             options,
-            f"{docker_cmd} logs --tail 200 {name} 2>&1",
-            bypass_semaphore=True,
+            f"{docker_cmd} logs {name} 2>&1 | tail -200",
         )
         if exit_status != 0:
             _LOGGER.warning(
