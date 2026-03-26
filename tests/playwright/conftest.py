@@ -336,8 +336,25 @@ def ensure_integration(ha_api: requests.Session, docker_host: dict) -> Generator
     assert len(entries) == 1, f"Expected 1 ssh_docker entry, found {len(entries)}"
     entry_id = entries[0]["entry_id"]
 
-    # Give HA a moment to load the sensor entity
-    time.sleep(3)
+    # Wait for HA to create the sensor entity AND for the initial SSH fetch
+    # (docker inspect + docker_create availability check) to complete.
+    # A fixed sleep is unreliable in CI because each SSH call can take 1-3 s;
+    # poll instead until the entity exists and is in a non-transitional state.
+    _TRANSITIONAL = {
+        "initializing", "stopping", "starting", "creating",
+        "recreating", "removing", "refreshing",
+    }
+    _deadline = time.time() + 60
+    while time.time() < _deadline:
+        _resp = ha_api.get(f"{HA_URL}/api/states")
+        if _resp.status_code == 200:
+            _entity = next(
+                (s for s in _resp.json() if s["entity_id"].startswith("sensor.ssh_docker_")),
+                None,
+            )
+            if _entity and _entity.get("state") not in _TRANSITIONAL:
+                break
+        time.sleep(2)
 
     yield entry_id
 
