@@ -4,3 +4,4 @@ htmlcov
 .coverage
 custom_components/
 .pytest_cache/
+playwright-results/
