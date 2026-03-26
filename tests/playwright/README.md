@@ -94,6 +94,21 @@ HA_URL=http://localhost:8123 bash tests/playwright/entrypoint.sh --collect-only 
 You can now set breakpoints anywhere in the test files and launch the
 configuration with the **Debug** button.
 
+**4. Tear down when done**
+
+To stop the infrastructure containers and remove the persisted HA config volume:
+
+```bash
+docker compose down -v
+```
+
+If you want to keep the HA configuration (user, integrations, etc.) for the next
+session, omit the `-v` flag:
+
+```bash
+docker compose down
+```
+
 > **Note:** `DOCKER_HOST_NAME=localhost` tells the tests to connect to SSH on
 > `localhost`; the port mapping in `docker-compose.override.yaml` routes that
 > to the container on port 2222.  If HA's `ssh_command` component still uses
