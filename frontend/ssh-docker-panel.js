@@ -209,6 +209,7 @@ class SshDockerPanel extends HTMLElement {
     const showStop     = !isTransitional && state === "running";
     const showRemove   = !isTransitional && state !== "unavailable" && state !== "unknown";
     const showRefresh  = state !== "initializing";
+    const showLogs     = state !== "unavailable" && state !== "unknown" && state !== "initializing";
 
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
@@ -217,6 +218,7 @@ class SshDockerPanel extends HTMLElement {
       showStop    ? `<button class="action-btn stop-btn"    data-action="stop"    data-entity="${entityId}">${this._t("btn_stop")}</button>`    : "",
       showRemove  ? `<button class="action-btn remove-btn"  data-action="remove"  data-entity="${entityId}">${this._t("btn_remove")}</button>`  : "",
       showRefresh ? `<button class="action-btn refresh-btn" data-action="refresh" data-entity="${entityId}">${this._t("btn_refresh")}</button>` : "",
+      showLogs    ? `<button class="action-btn logs-btn"    data-action="logs"    data-entity="${entityId}">${this._t("btn_logs")}</button>`    : "",
     ].filter(Boolean).join("");
     return `
       <div class="container-card">
@@ -245,8 +247,6 @@ class SshDockerPanel extends HTMLElement {
     if (!this._hass) return;
 
     const allContainers = this._getAllContainers();
-    const stateFiltered = this._getStateFilteredContainers();
-    const filteredContainers = this._getFilteredContainers();
 
     const states = ["running", "exited", "paused", "restarting", "starting", "dead", "created", "removing", "stopping", "creating", "initializing", "unavailable", "refreshing"];
     const counts = { all: allContainers.length };
@@ -256,6 +256,15 @@ class SshDockerPanel extends HTMLElement {
     counts["update_available"] = allContainers.filter(
       (c) => c.attributes && c.attributes.update_available === true
     ).length;
+
+    // If the active filter no longer has any containers, fall back to "all" before
+    // computing stateFiltered/filteredContainers so the correct set is rendered.
+    if (this._filter !== "all" && (counts[this._filter] === 0 || counts[this._filter] === undefined)) {
+      this._filter = "all";
+    }
+
+    const stateFiltered = this._getStateFilteredContainers();
+    const filteredContainers = this._getFilteredContainers();
 
     const filterKeys = ["all", ...states, "update_available"];
     const filterLabels = { update_available: this._t("updates_filter") };
@@ -493,6 +502,7 @@ class SshDockerPanel extends HTMLElement {
         .stop-btn    { background: #e67e22; }
         .remove-btn  { background: #e74c3c; }
         .refresh-btn { background: #7f8c8d; }
+        .logs-btn    { background: #2c3e50; }
         .no-containers {
           color: var(--secondary-text-color, #727272);
           font-style: italic;
@@ -539,10 +549,180 @@ class SshDockerPanel extends HTMLElement {
     });
 
     this.shadowRoot.querySelectorAll(".action-btn").forEach((btn) => {
-      btn.addEventListener("click", () =>
-        this._handleAction(btn.dataset.action, btn.dataset.entity)
-      );
+      if (btn.dataset.action === "logs") {
+        btn.addEventListener("click", () =>
+          this._showLogs(btn.dataset.entity)
+        );
+      } else {
+        btn.addEventListener("click", () =>
+          this._handleAction(btn.dataset.action, btn.dataset.entity)
+        );
+      }
     });
+  }
+
+  async _showLogs(entityId) {
+    if (!this._hass) return;
+    const entity = this._hass.states[entityId];
+    const containerName = (entity && entity.attributes && entity.attributes.name) || entityId;
+
+    // Remove any existing overlay.
+    const existing = document.getElementById("ssh-docker-logs-overlay");
+    if (existing) existing.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "ssh-docker-logs-overlay";
+    overlay.style.cssText = [
+      "position:fixed", "inset:0", "background:rgba(0,0,0,0.7)",
+      "z-index:9999", "display:flex", "align-items:center", "justify-content:center",
+    ].join(";");
+
+    const dialog = document.createElement("div");
+    dialog.style.cssText = [
+      "background:var(--card-background-color,#fff)", "border-radius:8px",
+      "padding:24px", "max-width:90vw", "width:860px", "max-height:85vh",
+      "display:flex", "flex-direction:column", "gap:12px", "box-sizing:border-box",
+    ].join(";");
+
+    const header = document.createElement("div");
+    header.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:8px;";
+    const title = document.createElement("h2");
+    title.style.cssText = "margin:0;font-size:1.1rem;color:var(--primary-text-color,#212121);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    title.textContent = "📋 " + containerName;
+
+    const refreshBtn = document.createElement("button");
+    refreshBtn.style.cssText = [
+      "padding:4px 12px", "border:none", "border-radius:12px", "cursor:pointer",
+      "font-size:0.82em", "font-family:inherit", "font-weight:500",
+      "background:#2c3e50", "color:white", "flex-shrink:0",
+      "transition:background 0.3s",
+    ].join(";");
+    refreshBtn.textContent = this._t("logs_btn_refresh");
+    refreshBtn.setAttribute("aria-label", this._t("logs_aria_refresh"));
+
+    const autoLabel = document.createElement("label");
+    autoLabel.style.cssText = "display:flex;align-items:center;gap:4px;font-size:0.78em;color:var(--primary-text-color,#212121);cursor:pointer;flex-shrink:0;white-space:nowrap;user-select:none;";
+    const autoCheckbox = document.createElement("input");
+    autoCheckbox.type = "checkbox";
+    autoCheckbox.style.cssText = "cursor:pointer;margin:0;";
+    autoCheckbox.setAttribute("aria-label", this._t("logs_aria_auto"));
+    autoLabel.appendChild(autoCheckbox);
+    autoLabel.appendChild(document.createTextNode(" " + this._t("logs_auto_label")));
+
+    const timestamp = document.createElement("span");
+    timestamp.style.cssText = "font-size:0.72em;color:var(--secondary-text-color,#727272);flex-shrink:0;white-space:nowrap;";
+
+    const closeBtn = document.createElement("button");
+    closeBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:1.4rem;line-height:1;color:var(--primary-text-color,#212121);flex-shrink:0;padding:0;";
+    closeBtn.textContent = "✕";
+    closeBtn.setAttribute("aria-label", this._t("logs_aria_close"));
+    header.appendChild(title);
+    header.appendChild(timestamp);
+    header.appendChild(autoLabel);
+    header.appendChild(refreshBtn);
+    header.appendChild(closeBtn);
+
+    const pre = document.createElement("pre");
+    pre.style.cssText = [
+      "overflow:auto", "flex:1", "min-height:200px", "max-height:65vh",
+      "background:#1a1a2e", "color:#e0e0e0", "padding:12px",
+      "border-radius:4px", "font-size:0.8em", "white-space:pre-wrap",
+      "word-break:break-all", "margin:0",
+    ].join(";");
+    pre.textContent = this._t("logs_fetching");
+
+    dialog.appendChild(header);
+    dialog.appendChild(pre);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    let feedbackTimer = null;
+    let autoRefreshInterval = null;
+    let isFetching = false;
+
+    const fetchLogs = async () => {
+      if (isFetching) return;
+      isFetching = true;
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = this._t("logs_btn_loading");
+      refreshBtn.style.background = "#7f8c8d";
+      refreshBtn.setAttribute("aria-label", this._t("logs_aria_loading"));
+      try {
+        const result = await this._hass.connection.sendMessagePromise({
+          type: "call_service",
+          domain: "ssh_docker",
+          service: "get_logs",
+          service_data: { entity_id: entityId },
+          return_response: true,
+        });
+        const logs = (result?.response?.logs) ?? "";
+        pre.textContent = logs.trim() || this._t("logs_no_output");
+        // Scroll to bottom so latest log entries are visible.
+        pre.scrollTop = pre.scrollHeight;
+        const now = new Date();
+        timestamp.textContent = now.toLocaleTimeString(this._hass?.locale?.language || undefined);
+        if (autoCheckbox.checked) {
+          // Auto-refresh mode: skip the green flash, restore the button immediately.
+          isFetching = false;
+          refreshBtn.textContent = this._t("logs_btn_refresh");
+          refreshBtn.style.background = "#2c3e50";
+          refreshBtn.setAttribute("aria-label", this._t("logs_aria_refresh"));
+          refreshBtn.disabled = false;
+        } else {
+          // Manual refresh: briefly flash green to confirm the refresh completed.
+          refreshBtn.textContent = this._t("logs_btn_updated");
+          refreshBtn.style.background = "#27ae60";
+          feedbackTimer = setTimeout(() => {
+            feedbackTimer = null;
+            isFetching = false;
+            refreshBtn.textContent = this._t("logs_btn_refresh");
+            refreshBtn.style.background = "#2c3e50";
+            refreshBtn.setAttribute("aria-label", this._t("logs_aria_refresh"));
+            refreshBtn.disabled = false;
+          }, 1500);
+        }
+      } catch (err) {
+        pre.textContent = this._t("logs_fetch_error") + err;
+        isFetching = false;
+        refreshBtn.textContent = this._t("logs_btn_refresh");
+        refreshBtn.style.background = "#2c3e50";
+        refreshBtn.setAttribute("aria-label", this._t("logs_aria_refresh"));
+        refreshBtn.disabled = false;
+      }
+    };
+
+    const stopAutoRefresh = () => {
+      if (autoRefreshInterval !== null) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+      }
+    };
+
+    autoCheckbox.addEventListener("change", () => {
+      if (autoCheckbox.checked) {
+        fetchLogs();
+        autoRefreshInterval = setInterval(fetchLogs, 5000);
+      } else {
+        stopAutoRefresh();
+      }
+    });
+
+    const closeOverlay = () => {
+      stopAutoRefresh();
+      if (feedbackTimer !== null) {
+        clearTimeout(feedbackTimer);
+        feedbackTimer = null;
+      }
+      overlay.remove();
+    };
+
+    closeBtn.addEventListener("click", closeOverlay);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeOverlay();
+    });
+
+    refreshBtn.addEventListener("click", fetchLogs);
+    await fetchLogs();
   }
 }
 

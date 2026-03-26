@@ -99,20 +99,27 @@ class DockerContainerSensor(SensorEntity):
         self.coordinator.set_pending_state("initializing")
 
         _host = self.entry.options.get(CONF_HOST, "")
-        _same_host_count = sum(
-            1 for e in self.hass.config_entries.async_entries(DOMAIN)
-            if e.options.get(CONF_HOST, "") == _host
-        )
-        stagger_secs = abs(hash(self.entry.entry_id)) % max(_same_host_count, 1)
-
-        async def _staggered_update(_event=None):
-            if stagger_secs > 0:
-                await asyncio.sleep(stagger_secs)
-            await self.async_update_ha_state(force_refresh=True)
 
         if self.hass.state == CoreState.running:
-            self.hass.async_create_task(_staggered_update())
+            # HA is already up — only one entry initializes at a time, no stagger needed.
+            async def _immediate_update():
+                await self.async_update_ha_state(force_refresh=True)
+
+            self.hass.async_create_task(_immediate_update())
         else:
+            # During startup all entries on the same host race to initialize; stagger
+            # them to spread the SSH load across the remote host.
+            _same_host_count = sum(
+                1 for e in self.hass.config_entries.async_entries(DOMAIN)
+                if e.options.get(CONF_HOST, "") == _host
+            )
+            stagger_secs = abs(hash(self.entry.entry_id)) % max(_same_host_count, 1)
+
+            async def _staggered_update(_event=None):
+                if stagger_secs > 0:
+                    await asyncio.sleep(stagger_secs)
+                await self.async_update_ha_state(force_refresh=True)
+
             self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _staggered_update)
 
     async def async_update(self) -> None:

@@ -437,6 +437,98 @@ class TestAsyncAddedToHass(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(sensor.native_value, "initializing")
 
+    async def test_no_stagger_when_ha_already_running(self):
+        """When HA is already running, the first refresh must be immediate (no sleep).
+
+        Even when many entries share the same host, a new entry added at runtime
+        must initialize immediately without any stagger delay.
+        """
+        options = {
+            "host": "192.168.1.100",
+            "username": "user",
+            "password": "pass",
+            "docker_command": "docker",
+            "check_known_hosts": True,
+        }
+        # Simulate 50 entries on the same host so the old code would produce a
+        # stagger of up to 49 seconds.
+        entries = [
+            ConfigEntry(
+                entry_id=f"entry_{i}",
+                data={"name": f"container_{i}", "service": f"container_{i}"},
+                options=options,
+            )
+            for i in range(50)
+        ]
+        entry = entries[0]
+        mock_hass = MagicMock()
+        mock_hass.state = CoreState.running
+        mock_hass.config_entries.async_entries.return_value = entries
+        coordinator = SshDockerCoordinator(entry=entry, hass=mock_hass)
+        sensor = DockerContainerSensor(coordinator, entry, mock_hass)
+        sensor.hass = mock_hass
+
+        update_calls = []
+
+        async def mock_update_ha_state(force_refresh=False):
+            update_calls.append(force_refresh)
+
+        with patch.object(sensor, "async_update_ha_state", new=mock_update_ha_state):
+            with patch("ssh_docker.sensor.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                await sensor.async_added_to_hass()
+                # Execute the created task so we can inspect sleep calls.
+                task_fn = mock_hass.async_create_task.call_args[0][0]
+                await task_fn
+
+        # With HA already running, no sleep should have been called regardless of
+        # how many entries share the host.
+        mock_sleep.assert_not_called()
+        # The update task must still have been executed.
+        self.assertEqual(update_calls, [True])
+
+    async def test_stagger_applied_during_ha_startup(self):
+        """During HA startup, entries sharing a host should receive a non-zero stagger.
+
+        The stagger spreads SSH load across all containers on the same host so
+        that the remote host is not overwhelmed during startup.
+        """
+        options = {
+            "host": "192.168.1.100",
+            "username": "user",
+            "password": "pass",
+            "docker_command": "docker",
+            "check_known_hosts": True,
+        }
+        # Use a large enough pool so that the modulo produces a non-zero stagger
+        # for the chosen entry_id deterministically.
+        entries = [
+            ConfigEntry(
+                entry_id=f"entry_{i}",
+                data={"name": f"container_{i}", "service": f"container_{i}"},
+                options=options,
+            )
+            for i in range(10)
+        ]
+        # Pick an entry_id whose hash % 10 is non-zero so we can assert staggering.
+        entry = next(
+            e for e in entries
+            if abs(hash(e.entry_id)) % 10 > 0
+        )
+        mock_hass = MagicMock()
+        mock_hass.state = CoreState.starting
+        mock_hass.config_entries.async_entries.return_value = entries
+        coordinator = SshDockerCoordinator(entry=entry, hass=mock_hass)
+        sensor = DockerContainerSensor(coordinator, entry, mock_hass)
+        sensor.hass = mock_hass
+
+        with patch.object(sensor, "async_update_ha_state", new=AsyncMock()):
+            await sensor.async_added_to_hass()
+
+        # During startup a one-shot event listener is registered (not a task).
+        mock_hass.bus.async_listen_once.assert_called_once_with(
+            EVENT_HOMEASSISTANT_STARTED, unittest.mock.ANY
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

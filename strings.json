@@ -135,6 +135,16 @@
           "description": "The entity ID of the docker container sensor."
         }
       }
+    },
+    "get_logs": {
+      "name": "Get Docker Container Logs",
+      "description": "Fetches the recent logs of a docker container on the remote host.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "The entity ID of the docker container sensor."
+        }
+      }
     }
   },
   "entity": {
@@ -176,6 +186,18 @@
       "btn_stop": { "name": "■ Stop" },
       "btn_remove": { "name": "🗑 Remove" },
       "btn_refresh": { "name": "↻ Refresh" },
+      "btn_logs": { "name": "📋 Logs" },
+      "logs_btn_refresh": { "name": "↺ Refresh" },
+      "logs_btn_loading": { "name": "↻ …" },
+      "logs_btn_updated": { "name": "✓ Updated" },
+      "logs_aria_refresh": { "name": "Refresh logs" },
+      "logs_aria_loading": { "name": "Loading logs" },
+      "logs_aria_auto": { "name": "Auto-refresh every 5 seconds" },
+      "logs_aria_close": { "name": "Close" },
+      "logs_auto_label": { "name": "Auto 5s" },
+      "logs_fetching": { "name": "Fetching logs…" },
+      "logs_no_output": { "name": "(no output)" },
+      "logs_fetch_error": { "name": "Error fetching logs:" },
       "unknown_host": { "name": "Unknown Host" },
       "all_states": { "name": "All states" },
       "updates_filter": { "name": "⬆ Updates" },
