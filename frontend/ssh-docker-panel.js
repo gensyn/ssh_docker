@@ -247,8 +247,6 @@ class SshDockerPanel extends HTMLElement {
     if (!this._hass) return;
 
     const allContainers = this._getAllContainers();
-    const stateFiltered = this._getStateFilteredContainers();
-    const filteredContainers = this._getFilteredContainers();
 
     const states = ["running", "exited", "paused", "restarting", "starting", "dead", "created", "removing", "stopping", "creating", "initializing", "unavailable", "refreshing"];
     const counts = { all: allContainers.length };
@@ -258,6 +256,15 @@ class SshDockerPanel extends HTMLElement {
     counts["update_available"] = allContainers.filter(
       (c) => c.attributes && c.attributes.update_available === true
     ).length;
+
+    // If the active filter no longer has any containers, fall back to "all" before
+    // computing stateFiltered/filteredContainers so the correct set is rendered.
+    if (this._filter !== "all" && (counts[this._filter] === 0 || counts[this._filter] === undefined)) {
+      this._filter = "all";
+    }
+
+    const stateFiltered = this._getStateFilteredContainers();
+    const filteredContainers = this._getFilteredContainers();
 
     const filterKeys = ["all", ...states, "update_available"];
     const filterLabels = { update_available: this._t("updates_filter") };
