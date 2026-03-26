@@ -1,0 +1,46 @@
+# Playwright E2E test environment — Docker host.
+#
+# Ubuntu 24.04 SSH host that exposes a mock Docker CLI so the SSH Docker
+# integration can run docker commands (inspect, restart, stop, etc.) over SSH
+# without requiring a real Docker daemon or privileged-mode containers.
+#
+# Credentials: user=foo  password=pass
+FROM ubuntu:24.04
+
+RUN apt-get update -qq && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -qq -y --no-install-recommends \
+        openssh-server \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create the test user
+RUN useradd -m -s /bin/bash foo && \
+    echo "foo:pass" | chpasswd
+
+# Generate SSH host keys and create the privilege-separation directory
+RUN ssh-keygen -A && \
+    mkdir -p /run/sshd
+
+# Minimal sshd configuration
+RUN printf '%s\n' \
+        'PasswordAuthentication yes' \
+        'PubkeyAuthentication yes' \
+        'KbdInteractiveAuthentication no' \
+        'UsePAM no' \
+        'PrintMotd no' \
+        'PrintLastLog no' \
+    > /etc/ssh/sshd_config.d/test.conf
+
+# Install the mock Docker CLI
+COPY mock-docker.sh /usr/local/bin/docker
+RUN chmod +x /usr/local/bin/docker
+
+# Create state directory (world-writable so the foo user can modify it)
+RUN mkdir -p /var/mock-docker && chmod 777 /var/mock-docker
+
+# Startup script
+COPY docker-host-entrypoint.sh /docker-host-entrypoint.sh
+RUN chmod +x /docker-host-entrypoint.sh
+
+EXPOSE 22
+
+CMD ["/docker-host-entrypoint.sh"]
