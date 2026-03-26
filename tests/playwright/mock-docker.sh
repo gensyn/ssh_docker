@@ -96,7 +96,10 @@ case "$CMD" in
             printf 'Error response from daemon: No such container: %s\n' "$container" >&2
             exit 1
         fi
-        echo "running" > "$DOCKER_STATE_DIR/$container/state"
+        if ! echo "running" > "$DOCKER_STATE_DIR/$container/state"; then
+            printf 'Error: cannot update state for container %s (permission denied)\n' "$container" >&2
+            exit 1
+        fi
         printf '%s\n' "$container"
         ;;
 
@@ -107,7 +110,10 @@ case "$CMD" in
             printf 'Error response from daemon: No such container: %s\n' "$container" >&2
             exit 1
         fi
-        echo "exited" > "$DOCKER_STATE_DIR/$container/state"
+        if ! echo "exited" > "$DOCKER_STATE_DIR/$container/state"; then
+            printf 'Error: cannot update state for container %s (permission denied)\n' "$container" >&2
+            exit 1
+        fi
         printf '%s\n' "$container"
         ;;
 
@@ -118,7 +124,10 @@ case "$CMD" in
             printf 'Error response from daemon: No such container: %s\n' "$container" >&2
             exit 1
         fi
-        echo "running" > "$DOCKER_STATE_DIR/$container/state"
+        if ! echo "running" > "$DOCKER_STATE_DIR/$container/state"; then
+            printf 'Error: cannot update state for container %s (permission denied)\n' "$container" >&2
+            exit 1
+        fi
         printf '%s\n' "$container"
         ;;
 
