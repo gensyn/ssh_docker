@@ -74,10 +74,30 @@ class TestServices:
     def test_stop_and_restart_service(
         self, ha_api: requests.Session, ensure_integration: str
     ) -> None:
-        """Stop followed by restart transitions the sensor state correctly."""
+        """Stop followed by restart transitions the sensor state correctly.
+
+        HA's REST service API returns 200 immediately after *queuing* the
+        service, before the coordinator's SSH stop + inspect cycle completes.
+        We therefore poll the entity state with a generous timeout instead of
+        using a fixed sleep.
+        """
         entity = _get_ssh_docker_entity(ha_api)
         assert entity is not None, "No ssh_docker sensor entity found"
         entity_id = entity["entity_id"]
+
+        def wait_for_state(expected_states: tuple, timeout: int = 45) -> str:
+            """Poll the entity state until it is one of *expected_states* or timeout."""
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                resp = ha_api.get(f"{HA_URL}/api/states/{entity_id}")
+                if resp.status_code == 200:
+                    state = resp.json().get("state", "")
+                    if state in expected_states:
+                        return state
+                time.sleep(2)
+            # Return whatever state we have at timeout
+            resp = ha_api.get(f"{HA_URL}/api/states/{entity_id}")
+            return resp.json().get("state", "") if resp.status_code == 200 else ""
 
         # Stop the container
         stop_resp = ha_api.post(
@@ -85,12 +105,9 @@ class TestServices:
             json={"entity_id": entity_id},
         )
         assert stop_resp.status_code in (200, 204), f"stop service failed: {stop_resp.text}"
-        time.sleep(2)
 
-        # Verify state changed to exited / unavailable
-        state_resp = ha_api.get(f"{HA_URL}/api/states/{entity_id}")
-        assert state_resp.status_code == 200
-        stopped_state = state_resp.json().get("state", "")
+        # Wait for the coordinator to finish the SSH stop → inspect cycle
+        stopped_state = wait_for_state(("exited", "unavailable", "unknown"))
         assert stopped_state in ("exited", "unavailable", "unknown"), (
             f"Expected exited/unavailable after stop, got: {stopped_state!r}"
         )
@@ -103,12 +120,9 @@ class TestServices:
         assert restart_resp.status_code in (200, 204), (
             f"restart service failed: {restart_resp.text}"
         )
-        time.sleep(2)
 
-        # Verify state is running again
-        state_resp2 = ha_api.get(f"{HA_URL}/api/states/{entity_id}")
-        assert state_resp2.status_code == 200
-        running_state = state_resp2.json().get("state", "")
+        # Wait for the coordinator to finish the SSH restart → inspect cycle
+        running_state = wait_for_state(("running", "unavailable", "unknown"))
         assert running_state in ("running", "unavailable", "unknown"), (
             f"Expected running/unavailable after restart, got: {running_state!r}"
         )
