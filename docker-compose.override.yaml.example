@@ -1,0 +1,20 @@
+# docker-compose.override.yaml.example
+#
+# Override file for **local development and PyCharm debugging**.
+# Copy this file to docker-compose.override.yaml (which is git-ignored) to
+# expose the HA and docker-host ports on your local machine so that the
+# Playwright tests can be run and debugged directly from your IDE.
+#
+# Usage:
+#   cp docker-compose.override.yaml.example docker-compose.override.yaml
+#   docker compose up -d homeassistant docker-host
+#   # Then run pytest from PyCharm (see tests/playwright/README.md)
+
+services:
+  homeassistant:
+    ports:
+      - "8123:8123"   # http://localhost:8123
+
+  docker-host:
+    ports:
+      - "2222:22"     # SSH reachable at localhost:2222

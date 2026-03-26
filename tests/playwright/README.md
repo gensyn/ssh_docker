@@ -37,6 +37,69 @@ root and can be used by CI or inspected locally.
 ./run_workflows_locally.sh
 ```
 
+## Debugging in PyCharm
+
+You can run and debug the tests directly from PyCharm by pointing them at the
+infrastructure containers running on `localhost`.
+
+**1. Expose the container ports**
+
+Copy the provided example override file and bring up only the infrastructure:
+
+```bash
+cp docker-compose.override.yaml.example docker-compose.override.yaml
+docker compose up -d homeassistant docker-host
+```
+
+The override exposes:
+- Home Assistant at `http://localhost:8123`
+- The mock Docker host SSH at `localhost:2222`
+
+**2. Set up Home Assistant (first run only)**
+
+On the first start HA needs to be onboarded.  Open `http://localhost:8123` in
+your browser and complete the onboarding wizard (create admin user / password
+`admin`/`admin` to match the test defaults), then navigate to
+**Settings → Devices & Services → Add Integration** and add **SSH Command**
+(no configuration needed — just click through).
+
+Alternatively, run the automated setup script once:
+
+```bash
+HA_URL=http://localhost:8123 bash tests/playwright/entrypoint.sh --collect-only 2>/dev/null || true
+```
+
+**3. Configure the PyCharm run/debug configuration**
+
+1. Open **Run → Edit Configurations** and add a new **pytest** configuration.
+2. Set **Script path** to `tests/playwright/` (the directory).
+3. Add the following **environment variables**:
+
+| Variable | Value |
+|---|---|
+| `HOMEASSISTANT_URL` | `http://localhost:8123` |
+| `DOCKER_HOST_NAME` | `localhost` |
+| `SSH_USER` | `foo` |
+| `SSH_PASSWORD` | `pass` |
+| `HA_USERNAME` | `admin` |
+| `HA_PASSWORD` | `admin` |
+
+4. Set **Working directory** to `tests/playwright/`.
+5. Ensure the Python interpreter has the test dependencies installed:
+   ```bash
+   pip install -r tests/playwright/requirements.txt
+   playwright install chromium
+   ```
+
+You can now set breakpoints anywhere in the test files and launch the
+configuration with the **Debug** button.
+
+> **Note:** `DOCKER_HOST_NAME=localhost` tells the tests to connect to SSH on
+> `localhost`; the port mapping in `docker-compose.override.yaml` routes that
+> to the container on port 2222.  If HA's `ssh_command` component still uses
+> the internal Docker hostname `docker_host`, you may need to add a hosts entry
+> or adjust the test's `conftest.py` `DOCKER_HOST_NAME` default.
+
 ## Running without Docker (advanced)
 
 ```bash
