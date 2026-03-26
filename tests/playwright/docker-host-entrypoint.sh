@@ -20,11 +20,13 @@ for name in test-app test-app-2; do
                                                            > "$DOCKER_STATE_DIR/$name/image_id"
 done
 
-# Give the SSH user (foo) ownership of all state files so it can update them
-# when running docker stop/start/restart commands via the mock CLI.
-# Without this the files are owned by root (644) and the write silently fails,
-# causing mock commands to exit 0 while leaving the state unchanged.
-chown -R foo:foo "$DOCKER_STATE_DIR"
+# Make state files and subdirectories world-writable so the SSH user (foo)
+# can update them when running docker stop/start/restart commands via the
+# mock CLI.  We use chmod rather than chown so root retains ownership (which
+# avoids any sshd or file-system ownership checks that chown could trigger).
+# The parent directory already has 777 from the Dockerfile; this extends
+# write permission to the subdirectories and files inside it.
+chmod -R a+w "$DOCKER_STATE_DIR"
 
 printf '[docker-host] Mock Docker state initialised (containers: test-app, test-app-2)\n'
 
