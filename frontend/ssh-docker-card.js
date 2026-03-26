@@ -229,17 +229,17 @@ class SshDockerCard extends HTMLElement {
       "background:#2c3e50", "color:white", "flex-shrink:0",
       "transition:background 0.3s",
     ].join(";");
-    refreshBtn.textContent = "↺ Refresh";
-    refreshBtn.setAttribute("aria-label", "Refresh logs");
+    refreshBtn.textContent = this._t("logs_btn_refresh");
+    refreshBtn.setAttribute("aria-label", this._t("logs_aria_refresh"));
 
     const autoLabel = document.createElement("label");
     autoLabel.style.cssText = "display:flex;align-items:center;gap:4px;font-size:0.78em;color:var(--primary-text-color,#212121);cursor:pointer;flex-shrink:0;white-space:nowrap;user-select:none;";
     const autoCheckbox = document.createElement("input");
     autoCheckbox.type = "checkbox";
     autoCheckbox.style.cssText = "cursor:pointer;margin:0;";
-    autoCheckbox.setAttribute("aria-label", "Auto-refresh every 5 seconds");
+    autoCheckbox.setAttribute("aria-label", this._t("logs_aria_auto"));
     autoLabel.appendChild(autoCheckbox);
-    autoLabel.appendChild(document.createTextNode(" Auto 5s"));
+    autoLabel.appendChild(document.createTextNode(" " + this._t("logs_auto_label")));
 
     const timestamp = document.createElement("span");
     timestamp.style.cssText = "font-size:0.72em;color:var(--secondary-text-color,#727272);flex-shrink:0;white-space:nowrap;";
@@ -247,7 +247,7 @@ class SshDockerCard extends HTMLElement {
     const closeBtn = document.createElement("button");
     closeBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:1.4rem;line-height:1;color:var(--primary-text-color,#212121);flex-shrink:0;padding:0;";
     closeBtn.textContent = "✕";
-    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.setAttribute("aria-label", this._t("logs_aria_close"));
     header.appendChild(title);
     header.appendChild(timestamp);
     header.appendChild(autoLabel);
@@ -261,7 +261,7 @@ class SshDockerCard extends HTMLElement {
       "border-radius:4px", "font-size:0.8em", "white-space:pre-wrap",
       "word-break:break-all", "margin:0",
     ].join(";");
-    pre.textContent = "Fetching logs…";
+    pre.textContent = this._t("logs_fetching");
 
     dialog.appendChild(header);
     dialog.appendChild(pre);
@@ -276,9 +276,9 @@ class SshDockerCard extends HTMLElement {
       if (isFetching) return;
       isFetching = true;
       refreshBtn.disabled = true;
-      refreshBtn.textContent = "↻ …";
+      refreshBtn.textContent = this._t("logs_btn_loading");
       refreshBtn.style.background = "#7f8c8d";
-      refreshBtn.setAttribute("aria-label", "Loading logs");
+      refreshBtn.setAttribute("aria-label", this._t("logs_aria_loading"));
       try {
         const result = await this._hass.connection.sendMessagePromise({
           type: "call_service",
@@ -288,37 +288,37 @@ class SshDockerCard extends HTMLElement {
           return_response: true,
         });
         const logs = (result?.response?.logs) ?? "";
-        pre.textContent = logs.trim() || "(no output)";
+        pre.textContent = logs.trim() || this._t("logs_no_output");
         // Scroll to bottom so latest log entries are visible.
         pre.scrollTop = pre.scrollHeight;
         const now = new Date();
-        timestamp.textContent = now.toLocaleTimeString();
+        timestamp.textContent = now.toLocaleTimeString(this._hass?.locale?.language || undefined);
         if (autoCheckbox.checked) {
           // Auto-refresh mode: skip the green flash, restore the button immediately.
           isFetching = false;
-          refreshBtn.textContent = "↺ Refresh";
+          refreshBtn.textContent = this._t("logs_btn_refresh");
           refreshBtn.style.background = "#2c3e50";
-          refreshBtn.setAttribute("aria-label", "Refresh logs");
+          refreshBtn.setAttribute("aria-label", this._t("logs_aria_refresh"));
           refreshBtn.disabled = false;
         } else {
           // Manual refresh: briefly flash green to confirm the refresh completed.
-          refreshBtn.textContent = "✓ Updated";
+          refreshBtn.textContent = this._t("logs_btn_updated");
           refreshBtn.style.background = "#27ae60";
           feedbackTimer = setTimeout(() => {
             feedbackTimer = null;
             isFetching = false;
-            refreshBtn.textContent = "↺ Refresh";
+            refreshBtn.textContent = this._t("logs_btn_refresh");
             refreshBtn.style.background = "#2c3e50";
-            refreshBtn.setAttribute("aria-label", "Refresh logs");
+            refreshBtn.setAttribute("aria-label", this._t("logs_aria_refresh"));
             refreshBtn.disabled = false;
           }, 1500);
         }
       } catch (err) {
-        pre.textContent = "Error fetching logs: " + err;
+        pre.textContent = this._t("logs_fetch_error") + err;
         isFetching = false;
-        refreshBtn.textContent = "↺ Refresh";
+        refreshBtn.textContent = this._t("logs_btn_refresh");
         refreshBtn.style.background = "#2c3e50";
-        refreshBtn.setAttribute("aria-label", "Refresh logs");
+        refreshBtn.setAttribute("aria-label", this._t("logs_aria_refresh"));
         refreshBtn.disabled = false;
       }
     };
