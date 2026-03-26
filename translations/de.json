@@ -135,6 +135,16 @@
           "description": "Die Entitäts-ID des Docker-Container-Sensors."
         }
       }
+    },
+    "get_logs": {
+      "name": "Docker-Container-Logs abrufen",
+      "description": "Ruft die aktuellen Logs eines Docker-Containers auf dem entfernten Host ab.",
+      "fields": {
+        "entity_id": {
+          "name": "Entitäts-ID",
+          "description": "Die Entitäts-ID des Docker-Container-Sensors."
+        }
+      }
     }
   },
   "entity": {
@@ -176,6 +186,18 @@
       "btn_stop": { "name": "■ Stoppen" },
       "btn_remove": { "name": "🗑 Entfernen" },
       "btn_refresh": { "name": "↻ Aktualisieren" },
+      "btn_logs": { "name": "📋 Logs" },
+      "logs_btn_refresh": { "name": "↺ Aktualisieren" },
+      "logs_btn_loading": { "name": "↻ …" },
+      "logs_btn_updated": { "name": "✓ Aktualisiert" },
+      "logs_aria_refresh": { "name": "Protokoll aktualisieren" },
+      "logs_aria_loading": { "name": "Protokoll wird geladen" },
+      "logs_aria_auto": { "name": "Alle 5 Sekunden automatisch aktualisieren" },
+      "logs_aria_close": { "name": "Schließen" },
+      "logs_auto_label": { "name": "Auto 5s" },
+      "logs_fetching": { "name": "Protokoll wird abgerufen…" },
+      "logs_no_output": { "name": "(keine Ausgabe)" },
+      "logs_fetch_error": { "name": "Fehler beim Abrufen des Protokolls:" },
       "unknown_host": { "name": "Unbekannter Host" },
       "all_states": { "name": "Alle Zustände" },
       "updates_filter": { "name": "⬆ Updates" },

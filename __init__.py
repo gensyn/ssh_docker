@@ -9,7 +9,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, SOURCE_DISCOVERY
 from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_NAME, Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, ServiceResponse
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry
 from homeassistant.helpers.typing import ConfigType
@@ -18,6 +18,7 @@ from .const import (
     DOMAIN, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES, CONF_SERVICE,
     SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
+    SERVICE_GET_LOGS,
     DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
     DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     DOCKER_SERVICES_EXECUTABLE,
@@ -145,6 +146,23 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         await coordinator.async_request_refresh()
 
     hass.services.async_register(DOMAIN, SERVICE_REFRESH, async_refresh, schema=SERVICE_ENTITY_SCHEMA)
+
+    async def async_get_logs(service_call: ServiceCall) -> ServiceResponse:
+        """Return recent logs for a docker container."""
+        entity_id = service_call.data["entity_id"]
+        _LOGGER.debug("Service 'get_logs' called for entity %s", entity_id)
+        entry = _get_entry_for_entity(hass, entity_id)
+        coordinator = _get_coordinator(hass, entry)
+        logs = await coordinator.get_logs()
+        return {"logs": logs}
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_LOGS,
+        async_get_logs,
+        schema=SERVICE_ENTITY_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
 
     _LOGGER.debug("SSH Docker integration setup complete")
     return True

@@ -15,6 +15,7 @@ sys.path.insert(0, absolute_plugin_path)
 from ssh_docker import async_setup, async_setup_entry  # noqa: E402
 from ssh_docker.const import (  # noqa: E402
     DOMAIN, SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
+    SERVICE_GET_LOGS,
 )
 from ssh_docker.frontend import SshDockerPanelRegistration  # noqa: E402
 from homeassistant.config_entries import ConfigEntry  # noqa: E402
@@ -35,7 +36,7 @@ class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(result)
         registered_calls = mock_hass.services.async_register.call_args_list
-        self.assertEqual(len(registered_calls), 5)
+        self.assertEqual(len(registered_calls), 6)
 
         service_names = [call.args[1] for call in registered_calls]
         self.assertIn(SERVICE_CREATE, service_names)
@@ -43,6 +44,7 @@ class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
         self.assertIn(SERVICE_STOP, service_names)
         self.assertIn(SERVICE_REMOVE, service_names)
         self.assertIn(SERVICE_REFRESH, service_names)
+        self.assertIn(SERVICE_GET_LOGS, service_names)
 
         domains = [call.args[0] for call in registered_calls]
         for domain in domains:
