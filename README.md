@@ -295,6 +295,7 @@ Each container card displays the current state (color-coded), image, creation da
 | **■ Stop** | Container is `running` |
 | **🗑 Remove** | Container is not `unavailable` |
 | **↻ Refresh** | Always shown; triggers an immediate sensor update |
+| **📋 Logs** | Container is not `unavailable`, `unknown`, `initializing`, or `pulling`; opens a log viewer overlay showing the last 200 lines of container output with optional auto-refresh every 5 seconds |
 
 The panel is mobile-friendly: on narrow screens a hamburger menu button (`☰`) appears in the toolbar to open the Home Assistant sidebar.
 
@@ -321,6 +322,7 @@ The card displays the container's state, image, creation date, and an **⬆ Upda
 | **■ Stop** | Container is `running` |
 | **🗑 Remove** | Container is not `unavailable` |
 | **↻ Refresh** | Always shown; triggers an immediate sensor update |
+| **📋 Logs** | Container is not `unavailable`, `unknown`, or `initializing`; opens a log viewer overlay showing the last 200 lines of container output with optional auto-refresh every 5 seconds |
 
 ---
 
