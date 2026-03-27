@@ -9,15 +9,22 @@ class SshDockerPanel extends HTMLElement {
     this._narrow = false;
     this._lastSnapshot = null;
     this._collapsedHosts = new Set();
+    this._failedEntries = [];
+    this._failedEntriesFetchedAt = 0;
   }
 
   set hass(hass) {
     this._hass = hass;
     // Only re-render when SSH Docker entity states/attributes actually changed.
     const snapshot = this._sshDockerSnapshot(hass);
-    if (snapshot === this._lastSnapshot) return;
+    if (snapshot === this._lastSnapshot) {
+      // Even without entity changes, periodically re-check for failed entries.
+      this._refreshFailedEntries();
+      return;
+    }
     this._lastSnapshot = snapshot;
     this._render();
+    this._refreshFailedEntries();
   }
 
   set narrow(value) {
@@ -38,7 +45,9 @@ class SshDockerPanel extends HTMLElement {
     this._visibilityHandler = () => {
       if (document.visibilityState === "visible" && this._hass) {
         this._lastSnapshot = null; // force re-render
+        this._failedEntriesFetchedAt = 0; // force re-fetch of failed entries
         this._render();
+        this._refreshFailedEntries();
       }
     };
     document.addEventListener("visibilitychange", this._visibilityHandler);
@@ -48,7 +57,9 @@ class SshDockerPanel extends HTMLElement {
     this._pageshowHandler = (e) => {
       if (e.persisted && this._hass) {
         this._lastSnapshot = null;
+        this._failedEntriesFetchedAt = 0;
         this._render();
+        this._refreshFailedEntries();
       }
     };
     window.addEventListener("pageshow", this._pageshowHandler);
@@ -70,6 +81,7 @@ class SshDockerPanel extends HTMLElement {
       this._lastSnapshot = null;
     }
     this._render();
+    this._refreshFailedEntries();
   }
 
   disconnectedCallback() {
@@ -95,6 +107,53 @@ class SshDockerPanel extends HTMLElement {
       .filter(([id]) => id.startsWith("sensor.ssh_docker_"))
       .map(([id, e]) => `${id}=${e.state}|${JSON.stringify(e.attributes)}`)
       .join(";");
+  }
+
+  // Fetches SSH Docker config entries and updates _failedEntries with those that
+  // have a setup_error state.  Throttled to at most one API call per 60 seconds.
+  // Re-renders the panel when the failed entries list changes.
+  async _refreshFailedEntries() {
+    if (!this._hass) return;
+    const now = Date.now();
+    if (now - this._failedEntriesFetchedAt < 60000) return;
+    this._failedEntriesFetchedAt = now;
+    try {
+      const entries = await this._hass.callApi("GET", "config/config_entries/entry?domain=ssh_docker");
+      const failed = (entries || []).filter((e) => e.state === "setup_error");
+      const changed = JSON.stringify(failed) !== JSON.stringify(this._failedEntries);
+      this._failedEntries = failed;
+      if (changed) this._render();
+    } catch (_err) {
+      // Silently ignore – the failed-entries section is non-critical.
+    }
+  }
+
+  // Returns the HTML for the "failed entries" section shown above the container grid.
+  _renderFailedSection() {
+    if (!this._failedEntries || this._failedEntries.length === 0) return "";
+    const cards = this._failedEntries.map((entry) => `
+      <div class="container-card">
+        <div class="container-card-header" style="background:#c0392b">
+          <span class="container-name">${entry.title}</span>
+          <span class="state-badge">${this._t("setup_failed_badge")}</span>
+        </div>
+        <div class="container-card-content">
+          <p class="setup-failed-hint">${this._t("setup_failed_hint")}</p>
+          <div class="action-buttons">
+            <button class="action-btn open-settings-btn"
+                    data-href="/config/integrations/integration/ssh_docker">
+              ${this._t("btn_open_settings")}
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join("");
+    return `
+      <div class="failed-entries-section">
+        <h3 class="failed-section-title">⚠ ${this._t("setup_failed_section")}</h3>
+        <div class="container-grid">${cards}</div>
+      </div>
+    `;
   }
 
   _t(key) {
@@ -507,12 +566,27 @@ class SshDockerPanel extends HTMLElement {
           color: var(--secondary-text-color, #727272);
           font-style: italic;
         }
+        .failed-entries-section {
+          margin-bottom: 24px;
+        }
+        .failed-section-title {
+          margin: 0 0 12px 0;
+          font-size: 1rem;
+          color: #c0392b;
+        }
+        .setup-failed-hint {
+          font-size: 0.85em;
+          color: var(--secondary-text-color, #727272);
+          margin: 4px 0 8px;
+        }
+        .open-settings-btn { background: #c0392b; }
       </style>
       <div class="toolbar">
         ${this._narrow ? "<ha-menu-button></ha-menu-button>" : ""}
         <div class="toolbar-title">SSH Docker</div>
       </div>
       <div class="content">
+        ${this._renderFailedSection()}
         <div class="filters">${filterButtons}</div>
         ${hostFilterHtml}
         ${hostsHtml}
@@ -553,6 +627,11 @@ class SshDockerPanel extends HTMLElement {
         btn.addEventListener("click", () =>
           this._showLogs(btn.dataset.entity)
         );
+      } else if (btn.classList.contains("open-settings-btn")) {
+        btn.addEventListener("click", () => {
+          history.pushState(null, "", btn.dataset.href);
+          window.dispatchEvent(new CustomEvent("location-changed", { bubbles: true, composed: true }));
+        });
       } else {
         btn.addEventListener("click", () =>
           this._handleAction(btn.dataset.action, btn.dataset.entity)

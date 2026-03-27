@@ -202,7 +202,11 @@
       "all_states": { "name": "Alle Zustände" },
       "updates_filter": { "name": "⬆ Updates" },
       "all_hosts": { "name": "Alle Hosts" },
-      "no_containers": { "name": "Keine Docker-Container gefunden." }
+      "no_containers": { "name": "Keine Docker-Container gefunden." },
+      "setup_failed_badge": { "name": "⚠ Einrichtung fehlgeschlagen" },
+      "setup_failed_section": { "name": "Einrichtung fehlgeschlagen" },
+      "setup_failed_hint": { "name": "Der Container wurde möglicherweise vom entfernten Host entfernt." },
+      "btn_open_settings": { "name": "Einstellungen öffnen" }
     }
   },
   "exceptions": {
