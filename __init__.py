@@ -18,7 +18,7 @@ from .const import (
     DOMAIN, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES, CONF_SERVICE,
     SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
-    SERVICE_GET_LOGS,
+    SERVICE_GET_LOGS, SERVICE_EXECUTE_COMMAND,
     DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
     DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     DOCKER_SERVICES_EXECUTABLE,
@@ -34,6 +34,13 @@ CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)  # pylint: disable=invalid-name
 SERVICE_ENTITY_SCHEMA = vol.Schema(
     {
         vol.Required("entity_id"): str,
+    }
+)
+
+SERVICE_EXECUTE_COMMAND_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_id"): str,
+        vol.Required("command"): str,
     }
 )
 
@@ -161,6 +168,24 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         SERVICE_GET_LOGS,
         async_get_logs,
         schema=SERVICE_ENTITY_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+
+    async def async_execute_command(service_call: ServiceCall) -> ServiceResponse:
+        """Execute an arbitrary command inside the docker container."""
+        entity_id = service_call.data["entity_id"]
+        command = service_call.data["command"]
+        _LOGGER.debug("Service 'execute_command' called for entity %s", entity_id)
+        entry = _get_entry_for_entity(hass, entity_id)
+        coordinator = _get_coordinator(hass, entry)
+        output, exit_status = await coordinator.execute_command(command)
+        return {"output": output, "exit_status": exit_status}
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_EXECUTE_COMMAND,
+        async_execute_command,
+        schema=SERVICE_EXECUTE_COMMAND_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
 

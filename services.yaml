@@ -69,3 +69,21 @@ get_logs:
       selector:
         entity:
           domain: sensor
+
+execute_command:
+  name: Execute Command in Docker Container
+  description: Executes an arbitrary command inside the docker container on the remote host and returns the output.
+  fields:
+    entity_id:
+      name: Entity ID
+      description: The entity ID of the docker container sensor.
+      required: true
+      selector:
+        entity:
+          domain: sensor
+    command:
+      name: Command
+      description: The command to execute inside the docker container.
+      required: true
+      selector:
+        text:

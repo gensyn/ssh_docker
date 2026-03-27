@@ -145,6 +145,20 @@
           "description": "Die Entitäts-ID des Docker-Container-Sensors."
         }
       }
+    },
+    "execute_command": {
+      "name": "Befehl im Docker-Container ausführen",
+      "description": "Führt einen beliebigen Befehl im Docker-Container auf dem entfernten Host aus und gibt die Ausgabe zurück.",
+      "fields": {
+        "entity_id": {
+          "name": "Entitäts-ID",
+          "description": "Die Entitäts-ID des Docker-Container-Sensors."
+        },
+        "command": {
+          "name": "Befehl",
+          "description": "Der im Docker-Container auszuführende Befehl."
+        }
+      }
     }
   },
   "entity": {
