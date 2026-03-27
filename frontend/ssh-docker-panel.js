@@ -126,9 +126,8 @@ class SshDockerPanel extends HTMLElement {
     if (!this._failedEntries || this._failedEntries.length === 0) return "";
 
     const cards = this._failedEntries.map((entry) => {
-      // Prefer host from the API response options; fall back to matched entity attributes.
-      const host = (entry.options && entry.options.host) ||
-        this._getHostForEntry(entry) || "";
+      // Host is sourced from entry.options returned by the config entries API.
+      const host = (entry.options && entry.options.host) || "";
       const hostHtml = host
         ? `<div class="setup-failed-host">${this._t("host_label")}: ${host}</div>`
         : "";
@@ -159,60 +158,59 @@ class SshDockerPanel extends HTMLElement {
     `;
   }
 
-  // Returns the host string for a failed entry by looking up the corresponding
-  // sensor entity in hass.states via entity name attribute matching.
-  _getHostForEntry(entry) {
-    if (!this._hass) return "";
-    const entity = this._findEntityForEntry(entry);
-    return (entity && entity.attributes && entity.attributes.host) || "";
-  }
-
-  // Returns a set of entity_ids (from hass.states) that belong to failed config entries.
-  // Used to exclude them from the regular container grid so they don't appear under
-  // "Unknown host" when a sensor entity still exists for a setup_error entry.
+  // Returns a set of entity_ids that belong to failed config entries.
+  // Uses three strategies so that entities are always excluded from the regular grid,
+  // even when attributes are empty (restored unavailable entity) or hass.entities is
+  // not yet populated.
   _getFailedEntityIds() {
     if (!this._hass || !this._failedEntries.length) return new Set();
+    const failedEntryIds = new Set(this._failedEntries.map((e) => e.entry_id).filter(Boolean));
     const result = new Set();
-    for (const entry of this._failedEntries) {
-      const entity = this._findEntityForEntry(entry);
-      if (entity) result.add(entity.entity_id);
-    }
-    return result;
-  }
 
-  // Finds the hass.states sensor entity corresponding to a failed config entry.
-  // Uses two strategies in order:
-  //   1. hass.entities registry (config_entry_id match) – most reliable when available.
-  //   2. Name-attribute match (attributes.name === entry.title) – fallback for panels
-  //      where hass.entities is unavailable or doesn't expose config_entry_id.
-  _findEntityForEntry(entry) {
-    if (!this._hass) return null;
-
-    // Strategy 1: entity registry (hass.entities)
+    // Strategy 1: entity registry — add entity_ids directly by config_entry_id.
+    // Does NOT require the entity to have a state in hass.states, so it works even
+    // for restored-but-never-loaded entities that have no attributes.
     if (this._hass.entities) {
       for (const [entityId, info] of Object.entries(this._hass.entities)) {
-        if (
-          entityId.startsWith("sensor.ssh_docker_") &&
-          info.config_entry_id === entry.entry_id
-        ) {
-          const state = this._hass.states[entityId];
-          if (state) return state;
+        if (entityId.startsWith("sensor.ssh_docker_") && failedEntryIds.has(info.config_entry_id)) {
+          result.add(entityId);
         }
       }
     }
 
-    // Strategy 2: match sensor entity by name attribute
+    // Strategies 2 & 3: iterate hass.states once as fallback when hass.entities is
+    // not available or the entity has no state yet.
+    const derivedIds = new Set(
+      this._failedEntries
+        .map((e) => e.title)
+        .filter(Boolean)
+        .map((t) => "sensor.ssh_docker_" + this._slugify(t))
+    );
     for (const state of Object.values(this._hass.states)) {
-      if (
-        state.entity_id.startsWith("sensor.ssh_docker_") &&
-        state.attributes &&
-        state.attributes.name === entry.title
-      ) {
-        return state;
+      if (!state.entity_id.startsWith("sensor.ssh_docker_")) continue;
+      // Strategy 2: name-attribute match (works when entity has populated attributes).
+      if (state.attributes && state.attributes.name) {
+        for (const entry of this._failedEntries) {
+          if (entry.title && state.attributes.name === entry.title) {
+            result.add(state.entity_id);
+            break;
+          }
+        }
       }
+      // Strategy 3: derived entity_id match (covers unavailable entities with empty
+      // attributes, where the entity_id was generated from the entry title by HA's slugify).
+      if (derivedIds.has(state.entity_id)) result.add(state.entity_id);
     }
 
-    return null;
+    return result;
+  }
+
+  // Mirrors HA's Python slugify: lowercases the text, replaces every run of
+  // non-alphanumeric characters with a single underscore, and strips leading/trailing
+  // underscores.  Non-ASCII characters are treated as non-alphanumeric (become "_").
+  // An all-non-alphanumeric input (e.g. "!!!") produces an empty string.
+  _slugify(text) {
+    return String(text).toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
   }
 
   _t(key) {
