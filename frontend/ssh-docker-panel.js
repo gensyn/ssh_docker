@@ -264,6 +264,7 @@ class SshDockerPanel extends HTMLElement {
       case "removing":   return "#c0392b";
       case "stopping":   return "#e67e22";
       case "creating":   return "#2980b9";
+      case "pulling":    return "#2471a3";
       case "refreshing": return "#7f8c8d";
       default:           return "#95a5a6";
     }
@@ -291,7 +292,7 @@ class SshDockerPanel extends HTMLElement {
 
     // Conditional button visibility per the requirements.
     // Create/Recreate: only if docker_create is available; label changes based on container state.
-    const transitionalStates = ["creating", "initializing", "restarting", "starting", "stopping", "removing", "refreshing"];
+    const transitionalStates = ["creating", "initializing", "restarting", "starting", "stopping", "removing", "refreshing", "pulling"];
     const isTransitional = transitionalStates.includes(state);
     const showCreate   = !isTransitional && attrs.docker_create_available === true;
     const createLabel  = state !== "unavailable"
@@ -303,8 +304,8 @@ class SshDockerPanel extends HTMLElement {
     const showStart    = !isTransitional && stoppedStates.includes(state);
     const showStop     = !isTransitional && state === "running";
     const showRemove   = !isTransitional && state !== "unavailable" && state !== "unknown";
-    const showRefresh  = state !== "initializing";
-    const showLogs     = state !== "unavailable" && state !== "unknown" && state !== "initializing";
+    const showRefresh  = state !== "initializing" && state !== "pulling";
+    const showLogs     = state !== "unavailable" && state !== "unknown" && state !== "initializing" && state !== "pulling";
 
     const actionButtons = [
       showCreate  ? `<button class="action-btn create-btn"  data-action="create"  data-entity="${entityId}">${createLabel}</button>` : "",
@@ -343,7 +344,7 @@ class SshDockerPanel extends HTMLElement {
 
     const allContainers = this._getAllContainers();
 
-    const states = ["running", "exited", "paused", "restarting", "starting", "dead", "created", "removing", "stopping", "creating", "initializing", "unavailable", "refreshing"];
+    const states = ["running", "exited", "paused", "restarting", "starting", "dead", "created", "removing", "stopping", "creating", "initializing", "pulling", "unavailable", "refreshing"];
     const counts = { all: allContainers.length };
     for (const s of states) {
       counts[s] = allContainers.filter((c) => c.state === s).length;

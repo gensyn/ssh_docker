@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shlex
 import time
 from datetime import timedelta
 from collections.abc import Callable
@@ -341,6 +342,7 @@ class SshDockerCoordinator:
         update_available = False
         new_image_id: str | None = None
         if options.get(CONF_CHECK_FOR_UPDATES, False):
+            self.set_pending_state("pulling")
             pull_cmd = (
                 f"{docker_cmd} pull {image_name} > /dev/null 2>&1;"
                 f" {docker_cmd} image inspect {image_name} --format '{{{{.Id}}}}'"
@@ -413,6 +415,27 @@ class SshDockerCoordinator:
                 "docker logs for container %s returned exit status %d", name, exit_status
             )
         return output
+
+    async def execute_command(self, command: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, int]:
+        """Execute an arbitrary command inside the container via ``docker exec``.
+
+        Returns ``(output, exit_status)`` where *output* contains the combined
+        stdout and stderr of the command.
+        """
+        options = dict(self.entry.options)
+        docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
+        name = self._service
+        _LOGGER.debug("Executing command in container %s: %s", name, command)
+        output, exit_status = await _ssh_run(
+            self.hass,
+            options,
+            f"{docker_cmd} exec {shlex.quote(name)} sh -c {shlex.quote(command)} 2>&1",
+            timeout=timeout,
+        )
+        _LOGGER.debug(
+            "Command in container %s exited with status %d", name, exit_status
+        )
+        return output, exit_status
 
     async def restart(self) -> None:
         """Restart the container."""

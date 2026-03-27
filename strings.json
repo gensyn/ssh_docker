@@ -145,6 +145,24 @@
           "description": "The entity ID of the docker container sensor."
         }
       }
+    },
+    "execute_command": {
+      "name": "Execute Command in Docker Container",
+      "description": "Executes an arbitrary command inside the docker container on the remote host and returns the output.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "The entity ID of the docker container sensor."
+        },
+        "command": {
+          "name": "Command",
+          "description": "The command to execute inside the docker container."
+        },
+        "timeout": {
+          "name": "Timeout",
+          "description": "Maximum number of seconds to wait for the command to complete. Defaults to 60."
+        }
+      }
     }
   },
   "entity": {
@@ -165,6 +183,7 @@
           "recreating": "Recreating",
           "dead": "Dead",
           "unavailable": "Unavailable",
+          "pulling": "Pulling",
           "refreshing": "Refreshing"
         }
       }

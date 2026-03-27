@@ -187,6 +187,32 @@ case "$CMD" in
         fi
         ;;
 
+    # ── docker exec ───────────────────────────────────────────────────────────
+    "exec")
+        # Usage: docker exec [flags] <container> <cmd> [args...]
+        # Skip any leading flags (e.g. -it, -e KEY=VAL, -u user)
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                -i|-t|-d|-it|-ti) shift ;;
+                -e|-u|-w|--env|--user|--workdir) shift 2 ;;
+                *) break ;;
+            esac
+        done
+        container="$1"; shift
+
+        if ! container_exists "$container"; then
+            printf 'Error response from daemon: No such container: %s\n' "$container" >&2
+            exit 1
+        fi
+        state=$(cat "$DOCKER_STATE_DIR/$container/state" 2>/dev/null || echo "running")
+        if [ "$state" != "running" ]; then
+            printf 'Error response from daemon: Container %s is not running\n' "$container" >&2
+            exit 1
+        fi
+        # Execute the command in the current shell environment, simulating exec
+        "$@"
+        ;;
+
     # ── docker pull ───────────────────────────────────────────────────────────
     "pull")
         # Silent success — no network access needed

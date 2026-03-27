@@ -34,7 +34,7 @@ class TestServices:
         assert ssh_docker_domain is not None, "ssh_docker domain not found in services list"
 
         registered = set(ssh_docker_domain.get("services", {}).keys())
-        expected = {"restart", "stop", "remove", "refresh", "get_logs"}
+        expected = {"restart", "stop", "remove", "refresh", "get_logs", "execute_command"}
         assert expected.issubset(registered), (
             f"Missing services: {expected - registered}.  Registered: {registered}"
         )
@@ -159,3 +159,89 @@ class TestServices:
             timeout=10,
         )
         assert resp.status_code == 401, resp.text
+
+
+class TestExecuteCommand:
+    """Tests focused on the execute_command service."""
+
+    def test_execute_command_returns_output_and_exit_status(
+        self, ha_api: requests.Session, ensure_integration: str
+    ) -> None:
+        """execute_command runs a command and returns output + exit_status."""
+        entity = _get_ssh_docker_entity(ha_api)
+        assert entity is not None, "No ssh_docker sensor entity found"
+
+        resp = ha_api.post(
+            f"{HA_URL}/api/services/ssh_docker/execute_command?return_response",
+            json={"entity_id": entity["entity_id"], "command": "echo hello"},
+        )
+        assert resp.status_code == 200, f"execute_command service failed: {resp.text}"
+        data = resp.json()
+        service_response = data.get("service_response", data)
+        assert "output" in service_response, (
+            f"Expected 'output' key in response, got: {list(service_response.keys())}"
+        )
+        assert "exit_status" in service_response, (
+            f"Expected 'exit_status' key in response, got: {list(service_response.keys())}"
+        )
+        assert "hello" in service_response["output"], (
+            f"Expected 'hello' in output, got: {service_response['output']!r}"
+        )
+        assert service_response["exit_status"] == 0, (
+            f"Expected exit_status 0, got: {service_response['exit_status']}"
+        )
+
+    def test_execute_command_captures_nonzero_exit_status(
+        self, ha_api: requests.Session, ensure_integration: str
+    ) -> None:
+        """execute_command captures non-zero exit codes from failing commands."""
+        entity = _get_ssh_docker_entity(ha_api)
+        assert entity is not None, "No ssh_docker sensor entity found"
+
+        resp = ha_api.post(
+            f"{HA_URL}/api/services/ssh_docker/execute_command?return_response",
+            json={"entity_id": entity["entity_id"], "command": "exit 42"},
+        )
+        assert resp.status_code == 200, f"execute_command service failed: {resp.text}"
+        data = resp.json()
+        service_response = data.get("service_response", data)
+        assert service_response.get("exit_status") == 42, (
+            f"Expected exit_status 42, got: {service_response.get('exit_status')}"
+        )
+
+    def test_execute_command_with_explicit_timeout(
+        self, ha_api: requests.Session, ensure_integration: str
+    ) -> None:
+        """execute_command accepts an explicit timeout parameter."""
+        entity = _get_ssh_docker_entity(ha_api)
+        assert entity is not None, "No ssh_docker sensor entity found"
+
+        resp = ha_api.post(
+            f"{HA_URL}/api/services/ssh_docker/execute_command?return_response",
+            json={
+                "entity_id": entity["entity_id"],
+                "command": "echo success",
+                "timeout": 30,
+            },
+        )
+        assert resp.status_code == 200, f"execute_command with timeout failed: {resp.text}"
+        data = resp.json()
+        service_response = data.get("service_response", data)
+        assert service_response.get("exit_status") == 0, (
+            f"Expected exit_status 0, got: {service_response.get('exit_status')}"
+        )
+
+    def test_execute_command_requires_command_field(
+        self, ha_api: requests.Session, ensure_integration: str
+    ) -> None:
+        """Calling execute_command without the command field returns a validation error."""
+        entity = _get_ssh_docker_entity(ha_api)
+        assert entity is not None, "No ssh_docker sensor entity found"
+
+        resp = ha_api.post(
+            f"{HA_URL}/api/services/ssh_docker/execute_command?return_response",
+            json={"entity_id": entity["entity_id"]},  # missing command
+        )
+        assert resp.status_code in (400, 422), (
+            f"Expected validation error (400/422) for missing command, got {resp.status_code}"
+        )

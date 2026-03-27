@@ -31,3 +31,8 @@ class Schema:
 def All(*args):
     """Mock All validator - returns last argument."""
     return args[-1] if args else {}
+
+
+def Range(min=None, max=None):  # pylint: disable=redefined-builtin
+    """Mock Range validator - pass through."""
+    return int
