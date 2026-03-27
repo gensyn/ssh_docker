@@ -183,6 +183,7 @@
           "recreating": "Wird neu erstellt",
           "dead": "Abgestürzt",
           "unavailable": "Nicht verfügbar",
+          "pulling": "Image wird geladen",
           "refreshing": "Wird aktualisiert"
         }
       }

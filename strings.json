@@ -183,6 +183,7 @@
           "recreating": "Recreating",
           "dead": "Dead",
           "unavailable": "Unavailable",
+          "pulling": "Pulling",
           "refreshing": "Refreshing"
         }
       }

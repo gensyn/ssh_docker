@@ -378,6 +378,39 @@ class TestDockerContainerSensor(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(listener_called)
 
+    async def test_pulling_pending_state_set_during_update_check(self):
+        """Test that the 'pulling' pending state is shown while the image pull is in progress."""
+        coordinator, sensor = _make_sensor(options={
+            "host": "192.168.1.100",
+            "username": "user",
+            "password": "pass",
+            "docker_command": "docker",
+            "check_known_hosts": True,
+            "auto_update": False,
+            CONF_CHECK_FOR_UPDATES: True,
+        })
+        observed_pending_state_during_pull = []
+
+        async def mock_ssh_run(hass, options, command, timeout=DEFAULT_TIMEOUT):
+            if "docker inspect" in command and "pull" not in command:
+                # docker inspect — container running with same image
+                return "running;2023-01-01T00:00:00Z;nginx:latest;sha256:abc123", 0
+            if "pull" in command:
+                # docker pull + image inspect — record pending state at this moment
+                observed_pending_state_during_pull.append(coordinator._pending_state)
+                return "sha256:abc123", 0
+            # docker_create availability check
+            return "", 0
+
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
+            await sensor.async_update()
+
+        # The pending state must have been "pulling" when the pull command ran.
+        self.assertEqual(observed_pending_state_during_pull, ["pulling"])
+        # After the full refresh the pending state is cleared.
+        self.assertIsNone(coordinator._pending_state)
+        self.assertEqual(sensor.native_value, "running")
+
 
 class TestAsyncAddedToHass(unittest.IsolatedAsyncioTestCase):
     """Test the async_added_to_hass lifecycle method."""
