@@ -341,6 +341,7 @@ class SshDockerCoordinator:
         update_available = False
         new_image_id: str | None = None
         if options.get(CONF_CHECK_FOR_UPDATES, False):
+            self.set_pending_state("pulling")
             pull_cmd = (
                 f"{docker_cmd} pull {image_name} > /dev/null 2>&1;"
                 f" {docker_cmd} image inspect {image_name} --format '{{{{.Id}}}}'"
