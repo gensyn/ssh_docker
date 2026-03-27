@@ -221,7 +221,11 @@
       "all_states": { "name": "All states" },
       "updates_filter": { "name": "⬆ Updates" },
       "all_hosts": { "name": "All Hosts" },
-      "no_containers": { "name": "No Docker containers found." }
+      "no_containers": { "name": "No Docker containers found." },
+      "setup_failed_badge": { "name": "⚠ Setup failed" },
+      "setup_failed_section": { "name": "Failed to set up" },
+      "setup_failed_hint": { "name": "The container may have been removed from the remote host." },
+      "btn_open_settings": { "name": "Open settings" }
     }
   },
   "exceptions": {

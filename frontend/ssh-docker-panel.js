@@ -9,6 +9,8 @@ class SshDockerPanel extends HTMLElement {
     this._narrow = false;
     this._lastSnapshot = null;
     this._collapsedHosts = new Set();
+    this._failedEntries = [];
+    this._isFetchingFailedEntries = false;
   }
 
   set hass(hass) {
@@ -39,6 +41,7 @@ class SshDockerPanel extends HTMLElement {
       if (document.visibilityState === "visible" && this._hass) {
         this._lastSnapshot = null; // force re-render
         this._render();
+        this._refreshFailedEntries();
       }
     };
     document.addEventListener("visibilitychange", this._visibilityHandler);
@@ -49,6 +52,7 @@ class SshDockerPanel extends HTMLElement {
       if (e.persisted && this._hass) {
         this._lastSnapshot = null;
         this._render();
+        this._refreshFailedEntries();
       }
     };
     window.addEventListener("pageshow", this._pageshowHandler);
@@ -70,6 +74,7 @@ class SshDockerPanel extends HTMLElement {
       this._lastSnapshot = null;
     }
     this._render();
+    this._refreshFailedEntries();
   }
 
   disconnectedCallback() {
@@ -97,6 +102,117 @@ class SshDockerPanel extends HTMLElement {
       .join(";");
   }
 
+  // Fetches SSH Docker config entries and updates _failedEntries with those that
+  // have a setup_error state.  A simple guard prevents concurrent fetches.
+  // Re-renders the panel when the failed entries list changes.
+  async _refreshFailedEntries() {
+    if (!this._hass || this._isFetchingFailedEntries) return;
+    this._isFetchingFailedEntries = true;
+    try {
+      const entries = await this._hass.callApi("GET", "config/config_entries/entry?domain=ssh_docker");
+      const failed = (entries || []).filter((e) => e.state === "setup_error");
+      const changed = JSON.stringify(failed) !== JSON.stringify(this._failedEntries);
+      this._failedEntries = failed;
+      if (changed) this._render();
+    } catch (_err) {
+      // Silently ignore – the failed-entries section is non-critical.
+    } finally {
+      this._isFetchingFailedEntries = false;
+    }
+  }
+
+  // Returns the HTML for the "failed entries" section shown above the container grid.
+  _renderFailedSection() {
+    if (!this._failedEntries || this._failedEntries.length === 0) return "";
+
+    const cards = this._failedEntries.map((entry) => {
+      // Host is sourced from entry.options returned by the config entries API.
+      const host = (entry.options && entry.options.host) || "";
+      const hostHtml = host
+        ? `<div class="setup-failed-host">${this._t("host_label")}: ${host}</div>`
+        : "";
+      return `
+      <div class="container-card">
+        <div class="container-card-header" style="background:#c0392b">
+          <span class="container-name">${entry.title}</span>
+          <span class="state-badge">${this._t("setup_failed_badge")}</span>
+        </div>
+        <div class="container-card-content">
+          ${hostHtml}
+          <p class="setup-failed-hint">${this._t("setup_failed_hint")}</p>
+          <div class="action-buttons">
+            <button class="action-btn open-settings-btn"
+                    data-href="/config/integrations/integration/ssh_docker">
+              ${this._t("btn_open_settings")}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    }).join("");
+    return `
+      <div class="failed-entries-section">
+        <h3 class="failed-section-title">⚠ ${this._t("setup_failed_section")}</h3>
+        <div class="container-grid">${cards}</div>
+      </div>
+    `;
+  }
+
+  // Returns a set of entity_ids that belong to failed config entries.
+  // Uses three strategies so that entities are always excluded from the regular grid,
+  // even when attributes are empty (restored unavailable entity) or hass.entities is
+  // not yet populated.
+  _getFailedEntityIds() {
+    if (!this._hass || !this._failedEntries.length) return new Set();
+    const failedEntryIds = new Set(this._failedEntries.map((e) => e.entry_id).filter(Boolean));
+    const result = new Set();
+
+    // Strategy 1: entity registry — add entity_ids directly by config_entry_id.
+    // Does NOT require the entity to have a state in hass.states, so it works even
+    // for restored-but-never-loaded entities that have no attributes.
+    if (this._hass.entities) {
+      for (const [entityId, info] of Object.entries(this._hass.entities)) {
+        if (entityId.startsWith("sensor.ssh_docker_") && failedEntryIds.has(info.config_entry_id)) {
+          result.add(entityId);
+        }
+      }
+    }
+
+    // Strategies 2 & 3: iterate hass.states once as fallback when hass.entities is
+    // not available or the entity has no state yet.
+    const derivedIds = new Set(
+      this._failedEntries
+        .map((e) => e.title)
+        .filter(Boolean)
+        .map((t) => "sensor.ssh_docker_" + this._slugify(t))
+    );
+    for (const state of Object.values(this._hass.states)) {
+      if (!state.entity_id.startsWith("sensor.ssh_docker_")) continue;
+      // Strategy 2: name-attribute match (works when entity has populated attributes).
+      if (state.attributes && state.attributes.name) {
+        for (const entry of this._failedEntries) {
+          if (entry.title && state.attributes.name === entry.title) {
+            result.add(state.entity_id);
+            break;
+          }
+        }
+      }
+      // Strategy 3: derived entity_id match (covers unavailable entities with empty
+      // attributes, where the entity_id was generated from the entry title by HA's slugify).
+      if (derivedIds.has(state.entity_id)) result.add(state.entity_id);
+    }
+
+    return result;
+  }
+
+  // Mirrors HA's Python slugify: lowercases the text, replaces every run of
+  // non-alphanumeric characters with a single underscore, and strips leading/trailing
+  // underscores.  Non-ASCII characters are treated as non-alphanumeric (become "_").
+  // An all-non-alphanumeric input (e.g. "!!!") produces an empty string.
+  _slugify(text) {
+    return String(text).toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+  }
+
   _t(key) {
     return (this._hass && this._hass.localize(`component.ssh_docker.entity.ui.${key}.name`)) || key;
   }
@@ -111,8 +227,10 @@ class SshDockerPanel extends HTMLElement {
 
   _getAllContainers() {
     if (!this._hass) return [];
+    const failedEntityIds = this._getFailedEntityIds();
     const containers = Object.values(this._hass.states).filter((entity) =>
-      entity.entity_id.startsWith("sensor.ssh_docker_")
+      entity.entity_id.startsWith("sensor.ssh_docker_") &&
+      !failedEntityIds.has(entity.entity_id)
     );
     // Always sort alphabetically by display name.
     return containers.sort((a, b) => {
@@ -508,12 +626,32 @@ class SshDockerPanel extends HTMLElement {
           color: var(--secondary-text-color, #727272);
           font-style: italic;
         }
+        .failed-entries-section {
+          margin-bottom: 24px;
+        }
+        .failed-section-title {
+          margin: 0 0 12px 0;
+          font-size: 1rem;
+          color: #c0392b;
+        }
+        .setup-failed-hint {
+          font-size: 0.85em;
+          color: var(--secondary-text-color, #727272);
+          margin: 4px 0 8px;
+        }
+        .setup-failed-host {
+          font-size: 0.85em;
+          color: var(--secondary-text-color, #727272);
+          margin: 6px 0 0;
+        }
+        .open-settings-btn { background: #c0392b; }
       </style>
       <div class="toolbar">
         ${this._narrow ? "<ha-menu-button></ha-menu-button>" : ""}
         <div class="toolbar-title">SSH Docker</div>
       </div>
       <div class="content">
+        ${this._renderFailedSection()}
         <div class="filters">${filterButtons}</div>
         ${hostFilterHtml}
         ${hostsHtml}
@@ -554,6 +692,11 @@ class SshDockerPanel extends HTMLElement {
         btn.addEventListener("click", () =>
           this._showLogs(btn.dataset.entity)
         );
+      } else if (btn.classList.contains("open-settings-btn")) {
+        btn.addEventListener("click", () => {
+          history.pushState(null, "", btn.dataset.href);
+          window.dispatchEvent(new CustomEvent("location-changed", { bubbles: true, composed: true }));
+        });
       } else {
         btn.addEventListener("click", () =>
           this._handleAction(btn.dataset.action, btn.dataset.entity)
