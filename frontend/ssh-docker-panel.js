@@ -10,21 +10,16 @@ class SshDockerPanel extends HTMLElement {
     this._lastSnapshot = null;
     this._collapsedHosts = new Set();
     this._failedEntries = [];
-    this._failedEntriesFetchedAt = 0;
+    this._isFetchingFailedEntries = false;
   }
 
   set hass(hass) {
     this._hass = hass;
     // Only re-render when SSH Docker entity states/attributes actually changed.
     const snapshot = this._sshDockerSnapshot(hass);
-    if (snapshot === this._lastSnapshot) {
-      // Even without entity changes, periodically re-check for failed entries.
-      this._refreshFailedEntries();
-      return;
-    }
+    if (snapshot === this._lastSnapshot) return;
     this._lastSnapshot = snapshot;
     this._render();
-    this._refreshFailedEntries();
   }
 
   set narrow(value) {
@@ -45,7 +40,6 @@ class SshDockerPanel extends HTMLElement {
     this._visibilityHandler = () => {
       if (document.visibilityState === "visible" && this._hass) {
         this._lastSnapshot = null; // force re-render
-        this._failedEntriesFetchedAt = 0; // force re-fetch of failed entries
         this._render();
         this._refreshFailedEntries();
       }
@@ -57,7 +51,6 @@ class SshDockerPanel extends HTMLElement {
     this._pageshowHandler = (e) => {
       if (e.persisted && this._hass) {
         this._lastSnapshot = null;
-        this._failedEntriesFetchedAt = 0;
         this._render();
         this._refreshFailedEntries();
       }
@@ -110,13 +103,11 @@ class SshDockerPanel extends HTMLElement {
   }
 
   // Fetches SSH Docker config entries and updates _failedEntries with those that
-  // have a setup_error state.  Throttled to at most one API call per 60 seconds.
+  // have a setup_error state.  A simple guard prevents concurrent fetches.
   // Re-renders the panel when the failed entries list changes.
   async _refreshFailedEntries() {
-    if (!this._hass) return;
-    const now = Date.now();
-    if (now - this._failedEntriesFetchedAt < 60000) return;
-    this._failedEntriesFetchedAt = now;
+    if (!this._hass || this._isFetchingFailedEntries) return;
+    this._isFetchingFailedEntries = true;
     try {
       const entries = await this._hass.callApi("GET", "config/config_entries/entry?domain=ssh_docker");
       const failed = (entries || []).filter((e) => e.state === "setup_error");
@@ -125,19 +116,34 @@ class SshDockerPanel extends HTMLElement {
       if (changed) this._render();
     } catch (_err) {
       // Silently ignore – the failed-entries section is non-critical.
+    } finally {
+      this._isFetchingFailedEntries = false;
     }
   }
 
   // Returns the HTML for the "failed entries" section shown above the container grid.
+  // For each failed entry, host info is sourced from a still-registered sensor entity
+  // (via hass.entities entity-registry lookup) when available.
   _renderFailedSection() {
     if (!this._failedEntries || this._failedEntries.length === 0) return "";
-    const cards = this._failedEntries.map((entry) => `
+
+    // Build a map from config entry_id → sensor entity state (if it exists)
+    const entityByEntryId = this._getEntityByEntryId();
+
+    const cards = this._failedEntries.map((entry) => {
+      const sensorEntity = entityByEntryId[entry.entry_id];
+      const host = (sensorEntity && sensorEntity.attributes && sensorEntity.attributes.host) || "";
+      const hostHtml = host
+        ? `<div class="setup-failed-host">${this._t("host_label")}: ${host}</div>`
+        : "";
+      return `
       <div class="container-card">
         <div class="container-card-header" style="background:#c0392b">
           <span class="container-name">${entry.title}</span>
           <span class="state-badge">${this._t("setup_failed_badge")}</span>
         </div>
         <div class="container-card-content">
+          ${hostHtml}
           <p class="setup-failed-hint">${this._t("setup_failed_hint")}</p>
           <div class="action-buttons">
             <button class="action-btn open-settings-btn"
@@ -147,13 +153,41 @@ class SshDockerPanel extends HTMLElement {
           </div>
         </div>
       </div>
-    `).join("");
+    `;
+    }).join("");
     return `
       <div class="failed-entries-section">
         <h3 class="failed-section-title">⚠ ${this._t("setup_failed_section")}</h3>
         <div class="container-grid">${cards}</div>
       </div>
     `;
+  }
+
+  // Returns a set of entity_ids (from hass.states) that belong to failed config entries.
+  // Used to exclude them from the regular container grid so they don't appear under
+  // "Unknown host" when a sensor entity still exists for a setup_error entry.
+  _getFailedEntityIds() {
+    const entityByEntryId = this._getEntityByEntryId();
+    return new Set(Object.values(entityByEntryId).map((e) => e.entity_id));
+  }
+
+  // Returns a map from config entry_id → hass.states entity for failed entries.
+  _getEntityByEntryId() {
+    if (!this._hass || !this._failedEntries.length) return {};
+    const failedEntryIds = new Set(this._failedEntries.map((e) => e.entry_id));
+    const map = {};
+    if (this._hass.entities) {
+      for (const [entityId, info] of Object.entries(this._hass.entities)) {
+        if (
+          entityId.startsWith("sensor.ssh_docker_") &&
+          failedEntryIds.has(info.config_entry_id)
+        ) {
+          const state = this._hass.states[entityId];
+          if (state) map[info.config_entry_id] = state;
+        }
+      }
+    }
+    return map;
   }
 
   _t(key) {
@@ -170,8 +204,10 @@ class SshDockerPanel extends HTMLElement {
 
   _getAllContainers() {
     if (!this._hass) return [];
+    const failedEntityIds = this._getFailedEntityIds();
     const containers = Object.values(this._hass.states).filter((entity) =>
-      entity.entity_id.startsWith("sensor.ssh_docker_")
+      entity.entity_id.startsWith("sensor.ssh_docker_") &&
+      !failedEntityIds.has(entity.entity_id)
     );
     // Always sort alphabetically by display name.
     return containers.sort((a, b) => {
@@ -578,6 +614,11 @@ class SshDockerPanel extends HTMLElement {
           font-size: 0.85em;
           color: var(--secondary-text-color, #727272);
           margin: 4px 0 8px;
+        }
+        .setup-failed-host {
+          font-size: 0.85em;
+          color: var(--secondary-text-color, #727272);
+          margin: 6px 0 0;
         }
         .open-settings-btn { background: #c0392b; }
       </style>
