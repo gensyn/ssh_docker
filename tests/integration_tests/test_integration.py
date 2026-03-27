@@ -25,6 +25,8 @@ from custom_components.ssh_docker.const import (
     CONF_SERVICE,
     DOMAIN,
     SERVICE_CREATE,
+    SERVICE_EXECUTE_COMMAND,
+    SERVICE_GET_LOGS,
     SERVICE_REFRESH,
     SERVICE_REMOVE,
     SERVICE_RESTART,
@@ -164,6 +166,16 @@ class TestServicesRegistered:
         entry = _make_entry()
         await _setup_entry(hass, entry)
         assert hass.services.has_service(DOMAIN, SERVICE_REFRESH)
+
+    async def test_get_logs_service_registered(self, hass, mock_ssh):
+        entry = _make_entry()
+        await _setup_entry(hass, entry)
+        assert hass.services.has_service(DOMAIN, SERVICE_GET_LOGS)
+
+    async def test_execute_command_service_registered(self, hass, mock_ssh):
+        entry = _make_entry()
+        await _setup_entry(hass, entry)
+        assert hass.services.has_service(DOMAIN, SERVICE_EXECUTE_COMMAND)
 
 
 # ---------------------------------------------------------------------------
@@ -892,10 +904,87 @@ class TestServiceMechanics:
 
         assert len(check_cmds) > 0
 
+    async def test_execute_command_returns_output_and_exit_status(self, hass):
+        """execute_command issues a docker exec command and returns output + exit_status."""
+        entry = _make_entry(entry_id="e1")
+        commands_seen: list[str] = []
 
-# ---------------------------------------------------------------------------
-# Update entity
-# ---------------------------------------------------------------------------
+        async def mock_run(h, opts, cmd, timeout=60):
+            commands_seen.append(cmd)
+            if "exec" in cmd and "echo hello" in cmd:
+                return "hello\n", 0
+            return await _default_ssh_run(h, opts, cmd, timeout)
+
+        with patch("custom_components.ssh_docker.coordinator._ssh_run", side_effect=mock_run), \
+             patch("custom_components.ssh_docker._ssh_run", side_effect=mock_run):
+            await _setup_entry(hass, entry)
+            commands_seen.clear()
+            result = await hass.services.async_call(
+                DOMAIN, SERVICE_EXECUTE_COMMAND,
+                {"entity_id": "sensor.ssh_docker_my_container", "command": "echo hello"},
+                blocking=True,
+                return_response=True,
+            )
+            await hass.async_block_till_done()
+
+        assert any("exec" in c for c in commands_seen), (
+            f"Expected a docker exec command, got: {commands_seen}"
+        )
+        assert result is not None, "Expected a service response"
+        assert result.get("output") == "hello\n", f"Unexpected output: {result.get('output')!r}"
+        assert result.get("exit_status") == 0, f"Unexpected exit_status: {result.get('exit_status')}"
+
+    async def test_execute_command_forwards_timeout(self, hass):
+        """execute_command forwards the timeout parameter to _ssh_run."""
+        entry = _make_entry(entry_id="e1")
+        captured_timeouts: list[int] = []
+
+        async def mock_run(h, opts, cmd, timeout=60):
+            if "exec" in cmd:
+                captured_timeouts.append(timeout)
+                return "output\n", 0
+            return await _default_ssh_run(h, opts, cmd, timeout)
+
+        with patch("custom_components.ssh_docker.coordinator._ssh_run", side_effect=mock_run), \
+             patch("custom_components.ssh_docker._ssh_run", side_effect=mock_run):
+            await _setup_entry(hass, entry)
+            await hass.services.async_call(
+                DOMAIN, SERVICE_EXECUTE_COMMAND,
+                {"entity_id": "sensor.ssh_docker_my_container", "command": "id", "timeout": 120},
+                blocking=True,
+                return_response=True,
+            )
+            await hass.async_block_till_done()
+
+        assert len(captured_timeouts) == 1
+        assert captured_timeouts[0] == 120, (
+            f"Expected timeout 120, got: {captured_timeouts[0]}"
+        )
+
+    async def test_execute_command_captures_nonzero_exit_status(self, hass):
+        """execute_command returns the non-zero exit code from the remote command."""
+        entry = _make_entry(entry_id="e1")
+
+        async def mock_run(h, opts, cmd, timeout=60):
+            if "exec" in cmd:
+                return "error output\n", 42
+            return await _default_ssh_run(h, opts, cmd, timeout)
+
+        with patch("custom_components.ssh_docker.coordinator._ssh_run", side_effect=mock_run), \
+             patch("custom_components.ssh_docker._ssh_run", side_effect=mock_run):
+            await _setup_entry(hass, entry)
+            result = await hass.services.async_call(
+                DOMAIN, SERVICE_EXECUTE_COMMAND,
+                {"entity_id": "sensor.ssh_docker_my_container", "command": "exit 42"},
+                blocking=True,
+                return_response=True,
+            )
+            await hass.async_block_till_done()
+
+        assert result is not None, "Expected a service response"
+        assert result.get("exit_status") == 42, (
+            f"Expected exit_status 42, got: {result.get('exit_status')}"
+        )
 
 
 class TestUpdateEntity:
