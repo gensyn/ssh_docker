@@ -15,7 +15,7 @@ A Home Assistant custom component that monitors and controls Docker containers o
 - 🤖 **Auto-Update** — Optionally recreate containers when a newer image is detected
 - 🔔 **HA Update Entities** — Containers with available image updates appear natively in Home Assistant's **Settings → Updates** panel and can be installed from there with one click
 - 🔍 **Automatic Discovery** — Discovers all containers on a host and offers to add them to Home Assistant
-- 🎛️ **Full Container Control** — Create, start, restart, stop, and remove containers from within Home Assistant
+- 🎛️ **Full Container Control** — Create, start, restart, stop, remove, and execute arbitrary commands in containers from within Home Assistant
 - 📊 **Sidebar Panel** — Auto-registered dashboard listing all containers grouped by host with filtering
 - 🎴 **Lovelace Card** — Individual container card for any Lovelace dashboard
 - 📡 **SSH Transport** — All host communication is delegated to `ssh_command.execute` — no direct SSH dependencies in this integration
@@ -209,6 +209,44 @@ action: ssh_docker.remove
 target:
   entity_id: sensor.ssh_docker_grocy
 ```
+
+### `ssh_docker.refresh`
+
+Triggers an immediate sensor update for the container (fetches fresh state from the remote host). Useful for automation-driven polling or after an out-of-band change.
+
+```yaml
+action: ssh_docker.refresh
+target:
+  entity_id: sensor.ssh_docker_grocy
+```
+
+### `ssh_docker.get_logs`
+
+Returns the last 200 lines of the container's logs (stdout + stderr combined). The response is available via the `logs` key.
+
+```yaml
+action: ssh_docker.get_logs
+target:
+  entity_id: sensor.ssh_docker_grocy
+response_variable: result
+# result.logs contains the log output string
+```
+
+### `ssh_docker.execute_command`
+
+Executes an arbitrary command inside the running Docker container via `docker exec` and returns the combined stdout + stderr output along with the exit status. The command is passed to `sh -c` inside the container.
+
+```yaml
+action: ssh_docker.execute_command
+data:
+  entity_id: sensor.ssh_docker_grocy
+  command: "cat /etc/os-release"
+response_variable: result
+# result.output     — combined stdout + stderr of the command
+# result.exit_status — integer exit code returned by the command
+```
+
+This service is useful for one-off diagnostic commands, health checks, or configuration queries without requiring a separate SSH session.
 
 ---
 
