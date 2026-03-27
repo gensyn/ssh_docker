@@ -15,7 +15,7 @@ sys.path.insert(0, absolute_plugin_path)
 from ssh_docker import async_setup, async_setup_entry  # noqa: E402
 from ssh_docker.const import (  # noqa: E402
     DOMAIN, SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
-    SERVICE_GET_LOGS,
+    SERVICE_GET_LOGS, SERVICE_EXECUTE_COMMAND, DEFAULT_TIMEOUT,
 )
 from ssh_docker.frontend import SshDockerPanelRegistration  # noqa: E402
 from homeassistant.config_entries import ConfigEntry  # noqa: E402
@@ -36,7 +36,7 @@ class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(result)
         registered_calls = mock_hass.services.async_register.call_args_list
-        self.assertEqual(len(registered_calls), 6)
+        self.assertEqual(len(registered_calls), 7)
 
         service_names = [call.args[1] for call in registered_calls]
         self.assertIn(SERVICE_CREATE, service_names)
@@ -45,6 +45,7 @@ class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
         self.assertIn(SERVICE_REMOVE, service_names)
         self.assertIn(SERVICE_REFRESH, service_names)
         self.assertIn(SERVICE_GET_LOGS, service_names)
+        self.assertIn(SERVICE_EXECUTE_COMMAND, service_names)
 
         domains = [call.args[0] for call in registered_calls]
         for domain in domains:
@@ -371,6 +372,54 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
         cached = coord_module._DOCKER_SERVICES_CACHE.get("10.0.0.3")
         self.assertIsNotNone(cached)
         self.assertIsNone(cached[0])  # None means "not found / no output"
+
+
+class TestExecuteCommandTimeout(unittest.IsolatedAsyncioTestCase):
+    """Test that the execute_command service forwards the timeout parameter correctly."""
+
+    async def test_execute_command_uses_default_timeout(self):
+        """execute_command uses DEFAULT_TIMEOUT when no timeout is given."""
+        from ssh_docker.coordinator import SshDockerCoordinator  # noqa: PLC0415
+
+        entry = _make_entry(service="my_container")
+        mock_hass = MagicMock()
+        coordinator = SshDockerCoordinator(hass=mock_hass, entry=entry)
+
+        captured_timeout = None
+
+        async def mock_ssh_run(h, opts, cmd, timeout=DEFAULT_TIMEOUT):
+            nonlocal captured_timeout
+            captured_timeout = timeout
+            return "output", 0
+
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
+            output, exit_status = await coordinator.execute_command("echo hello")
+
+        self.assertEqual(output, "output")
+        self.assertEqual(exit_status, 0)
+        self.assertEqual(captured_timeout, DEFAULT_TIMEOUT)
+
+    async def test_execute_command_uses_custom_timeout(self):
+        """execute_command forwards a custom timeout to _ssh_run."""
+        from ssh_docker.coordinator import SshDockerCoordinator  # noqa: PLC0415
+
+        entry = _make_entry(service="my_container")
+        mock_hass = MagicMock()
+        coordinator = SshDockerCoordinator(hass=mock_hass, entry=entry)
+
+        captured_timeout = None
+
+        async def mock_ssh_run(h, opts, cmd, timeout=DEFAULT_TIMEOUT):
+            nonlocal captured_timeout
+            captured_timeout = timeout
+            return "custom output", 0
+
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
+            output, exit_status = await coordinator.execute_command("echo hello", timeout=120)
+
+        self.assertEqual(output, "custom output")
+        self.assertEqual(exit_status, 0)
+        self.assertEqual(captured_timeout, 120)
 
 
 if __name__ == "__main__":
