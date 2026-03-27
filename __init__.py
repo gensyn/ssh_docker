@@ -41,6 +41,7 @@ SERVICE_EXECUTE_COMMAND_SCHEMA = vol.Schema(
     {
         vol.Required("entity_id"): str,
         vol.Required("command"): str,
+        vol.Optional("timeout"): vol.All(int, vol.Range(min=1)),
     }
 )
 
@@ -175,10 +176,11 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         """Execute an arbitrary command inside the docker container."""
         entity_id = service_call.data["entity_id"]
         command = service_call.data["command"]
+        timeout = service_call.data.get("timeout", DEFAULT_TIMEOUT)
         _LOGGER.debug("Service 'execute_command' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         coordinator = _get_coordinator(hass, entry)
-        output, exit_status = await coordinator.execute_command(command)
+        output, exit_status = await coordinator.execute_command(command, timeout=timeout)
         return {"output": output, "exit_status": exit_status}
 
     hass.services.async_register(

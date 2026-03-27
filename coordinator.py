@@ -415,7 +415,7 @@ class SshDockerCoordinator:
             )
         return output
 
-    async def execute_command(self, command: str) -> tuple[str, int]:
+    async def execute_command(self, command: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, int]:
         """Execute an arbitrary command inside the container via ``docker exec``.
 
         Returns ``(output, exit_status)`` where *output* contains the combined
@@ -429,6 +429,7 @@ class SshDockerCoordinator:
             self.hass,
             options,
             f"{docker_cmd} exec {shlex.quote(name)} sh -c {shlex.quote(command)} 2>&1",
+            timeout=timeout,
         )
         _LOGGER.debug(
             "Command in container %s exited with status %d", name, exit_status

@@ -241,6 +241,7 @@ action: ssh_docker.execute_command
 data:
   entity_id: sensor.ssh_docker_grocy
   command: "cat /etc/os-release"
+  timeout: 30   # optional — seconds to wait (default: 60, max: 3600)
 response_variable: result
 # result.output     — combined stdout + stderr of the command
 # result.exit_status — integer exit code returned by the command

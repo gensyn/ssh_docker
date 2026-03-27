@@ -157,6 +157,10 @@
         "command": {
           "name": "Command",
           "description": "The command to execute inside the docker container."
+        },
+        "timeout": {
+          "name": "Timeout",
+          "description": "Maximum number of seconds to wait for the command to complete. Defaults to 60."
         }
       }
     }
