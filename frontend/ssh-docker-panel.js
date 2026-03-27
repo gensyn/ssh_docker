@@ -122,17 +122,13 @@ class SshDockerPanel extends HTMLElement {
   }
 
   // Returns the HTML for the "failed entries" section shown above the container grid.
-  // For each failed entry, host info is sourced from a still-registered sensor entity
-  // (via hass.entities entity-registry lookup) when available.
   _renderFailedSection() {
     if (!this._failedEntries || this._failedEntries.length === 0) return "";
 
-    // Build a map from config entry_id → sensor entity state (if it exists)
-    const entityByEntryId = this._getEntityByEntryId();
-
     const cards = this._failedEntries.map((entry) => {
-      const sensorEntity = entityByEntryId[entry.entry_id];
-      const host = (sensorEntity && sensorEntity.attributes && sensorEntity.attributes.host) || "";
+      // Prefer host from the API response options; fall back to matched entity attributes.
+      const host = (entry.options && entry.options.host) ||
+        this._getHostForEntry(entry) || "";
       const hostHtml = host
         ? `<div class="setup-failed-host">${this._t("host_label")}: ${host}</div>`
         : "";
@@ -163,31 +159,60 @@ class SshDockerPanel extends HTMLElement {
     `;
   }
 
+  // Returns the host string for a failed entry by looking up the corresponding
+  // sensor entity in hass.states via entity name attribute matching.
+  _getHostForEntry(entry) {
+    if (!this._hass) return "";
+    const entity = this._findEntityForEntry(entry);
+    return (entity && entity.attributes && entity.attributes.host) || "";
+  }
+
   // Returns a set of entity_ids (from hass.states) that belong to failed config entries.
   // Used to exclude them from the regular container grid so they don't appear under
   // "Unknown host" when a sensor entity still exists for a setup_error entry.
   _getFailedEntityIds() {
-    const entityByEntryId = this._getEntityByEntryId();
-    return new Set(Object.values(entityByEntryId).map((e) => e.entity_id));
+    if (!this._hass || !this._failedEntries.length) return new Set();
+    const result = new Set();
+    for (const entry of this._failedEntries) {
+      const entity = this._findEntityForEntry(entry);
+      if (entity) result.add(entity.entity_id);
+    }
+    return result;
   }
 
-  // Returns a map from config entry_id → hass.states entity for failed entries.
-  _getEntityByEntryId() {
-    if (!this._hass || !this._failedEntries.length) return {};
-    const failedEntryIds = new Set(this._failedEntries.map((e) => e.entry_id));
-    const map = {};
+  // Finds the hass.states sensor entity corresponding to a failed config entry.
+  // Uses two strategies in order:
+  //   1. hass.entities registry (config_entry_id match) – most reliable when available.
+  //   2. Name-attribute match (attributes.name === entry.title) – fallback for panels
+  //      where hass.entities is unavailable or doesn't expose config_entry_id.
+  _findEntityForEntry(entry) {
+    if (!this._hass) return null;
+
+    // Strategy 1: entity registry (hass.entities)
     if (this._hass.entities) {
       for (const [entityId, info] of Object.entries(this._hass.entities)) {
         if (
           entityId.startsWith("sensor.ssh_docker_") &&
-          failedEntryIds.has(info.config_entry_id)
+          info.config_entry_id === entry.entry_id
         ) {
           const state = this._hass.states[entityId];
-          if (state) map[info.config_entry_id] = state;
+          if (state) return state;
         }
       }
     }
-    return map;
+
+    // Strategy 2: match sensor entity by name attribute
+    for (const state of Object.values(this._hass.states)) {
+      if (
+        state.entity_id.startsWith("sensor.ssh_docker_") &&
+        state.attributes &&
+        state.attributes.name === entry.title
+      ) {
+        return state;
+      }
+    }
+
+    return null;
   }
 
   _t(key) {
