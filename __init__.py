@@ -188,7 +188,7 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         SERVICE_EXECUTE_COMMAND,
         async_execute_command,
         schema=SERVICE_EXECUTE_COMMAND_SCHEMA,
-        supports_response=SupportsResponse.ONLY,
+        supports_response=SupportsResponse.OPTIONAL,
     )
 
     _LOGGER.debug("SSH Docker integration setup complete")

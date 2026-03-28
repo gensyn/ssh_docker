@@ -986,6 +986,34 @@ class TestServiceMechanics:
             f"Expected exit_status 42, got: {result.get('exit_status')}"
         )
 
+    async def test_execute_command_without_response(self, hass):
+        """execute_command can be called without requesting a response."""
+        entry = _make_entry(entry_id="e1")
+        commands_seen: list[str] = []
+
+        async def mock_run(h, opts, cmd, timeout=60):
+            commands_seen.append(cmd)
+            if "exec" in cmd:
+                return "hello\n", 0
+            return await _default_ssh_run(h, opts, cmd, timeout)
+
+        with patch("custom_components.ssh_docker.coordinator._ssh_run", side_effect=mock_run), \
+             patch("custom_components.ssh_docker._ssh_run", side_effect=mock_run):
+            await _setup_entry(hass, entry)
+            commands_seen.clear()
+            result = await hass.services.async_call(
+                DOMAIN, SERVICE_EXECUTE_COMMAND,
+                {"entity_id": "sensor.ssh_docker_my_container", "command": "echo hello"},
+                blocking=True,
+                return_response=False,
+            )
+            await hass.async_block_till_done()
+
+        assert result is None, "Expected no response when return_response=False"
+        assert any("exec" in c for c in commands_seen), (
+            f"Expected a docker exec command, got: {commands_seen}"
+        )
+
 
 class TestUpdateEntity:
     """DockerContainerUpdateEntity reflects coordinator update state."""
