@@ -150,7 +150,8 @@ def _make_hass_for_setup():
     hass = MagicMock()
     hass.data = {}
     hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=None)
-    hass.async_create_task = MagicMock()
+    # Close any coroutine passed in to prevent "never awaited" RuntimeWarnings.
+    hass.async_create_task = lambda coro, *a, **kw: coro.close()
     return hass
 
 
