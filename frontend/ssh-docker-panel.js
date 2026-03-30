@@ -458,6 +458,9 @@ class SshDockerPanel extends HTMLElement {
           color: var(--app-header-text-color, white);
           height: var(--header-height, 56px);
           padding: 0 16px;
+          position: sticky;
+          top: 0;
+          z-index: 10;
         }
         .toolbar-title {
           font-size: 1.25rem;
