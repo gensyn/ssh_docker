@@ -6,6 +6,7 @@ class SshDockerPanel extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._filter = "all";
     this._hostFilter = "all";
+    this._nameFilter = "";
     this._narrow = false;
     this._lastSnapshot = null;
     this._collapsedHosts = new Set();
@@ -250,9 +251,27 @@ class SshDockerPanel extends HTMLElement {
   }
 
   _getFilteredContainers() {
-    const containers = this._getStateFilteredContainers();
-    if (this._hostFilter === "all") return containers;
-    return containers.filter((c) => this._getContainerHost(c) === this._hostFilter);
+    let containers = this._getStateFilteredContainers();
+    if (this._hostFilter !== "all") {
+      containers = containers.filter((c) => this._getContainerHost(c) === this._hostFilter);
+    }
+    if (this._nameFilter) {
+      const needle = this._nameFilter.toLowerCase();
+      containers = containers.filter((c) => {
+        const name = ((c.attributes && c.attributes.name) || c.entity_id).toLowerCase();
+        return name.includes(needle);
+      });
+    }
+    return containers;
+  }
+
+  _escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   _setFilter(filter) {
@@ -482,6 +501,25 @@ class SshDockerPanel extends HTMLElement {
         .host-filters {
           margin-top: -8px;
         }
+        .name-filter-row {
+          margin-bottom: 16px;
+        }
+        .name-filter-input {
+          width: 100%;
+          box-sizing: border-box;
+          padding: 8px 12px;
+          border: 2px solid var(--divider-color, #e0e0e0);
+          border-radius: 20px;
+          background: var(--card-background-color, white);
+          color: var(--primary-text-color, #212121);
+          font-size: 0.9rem;
+          font-family: inherit;
+          outline: none;
+          transition: border-color 0.2s;
+        }
+        .name-filter-input:focus {
+          border-color: var(--primary-color, #03a9f4);
+        }
         .filter-btn {
           padding: 6px 14px;
           border: 2px solid var(--primary-color, #03a9f4);
@@ -657,6 +695,9 @@ class SshDockerPanel extends HTMLElement {
         ${this._renderFailedSection()}
         <div class="filters">${filterButtons}</div>
         ${hostFilterHtml}
+        <div class="name-filter-row">
+          <input class="name-filter-input" type="search" placeholder="${this._t("search_placeholder")}" value="${this._escapeHtml(this._nameFilter)}" aria-label="${this._t("search_placeholder")}">
+        </div>
         ${hostsHtml}
       </div>
     `;
@@ -689,6 +730,14 @@ class SshDockerPanel extends HTMLElement {
     this.shadowRoot.querySelectorAll(".host-filter-btn").forEach((btn) => {
       btn.addEventListener("click", () => this._setHostFilter(btn.dataset.host));
     });
+
+    const nameInput = this.shadowRoot.querySelector(".name-filter-input");
+    if (nameInput) {
+      nameInput.addEventListener("input", (e) => {
+        this._nameFilter = e.target.value;
+        this._render();
+      });
+    }
 
     this.shadowRoot.querySelectorAll(".action-btn").forEach((btn) => {
       if (btn.dataset.action === "logs") {

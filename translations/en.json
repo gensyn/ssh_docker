@@ -225,7 +225,8 @@
       "setup_failed_badge": { "name": "⚠ Setup failed" },
       "setup_failed_section": { "name": "Failed to set up" },
       "setup_failed_hint": { "name": "The container may have been removed from the remote host." },
-      "btn_open_settings": { "name": "Open settings" }
+      "btn_open_settings": { "name": "Open settings" },
+      "search_placeholder": { "name": "Filter by name…" }
     }
   },
   "exceptions": {

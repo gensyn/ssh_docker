@@ -225,7 +225,8 @@
       "setup_failed_badge": { "name": "⚠ Einrichtung fehlgeschlagen" },
       "setup_failed_section": { "name": "Einrichtung fehlgeschlagen" },
       "setup_failed_hint": { "name": "Der Container wurde möglicherweise vom entfernten Host entfernt." },
-      "btn_open_settings": { "name": "Einstellungen öffnen" }
+      "btn_open_settings": { "name": "Einstellungen öffnen" },
+      "search_placeholder": { "name": "Nach Name filtern…" }
     }
   },
   "exceptions": {
