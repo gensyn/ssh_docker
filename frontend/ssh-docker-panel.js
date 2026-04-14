@@ -384,6 +384,14 @@ class SshDockerPanel extends HTMLElement {
   _render() {
     if (!this._hass) return;
 
+    // Preserve name-filter input focus and cursor position across re-renders.
+    // shadowRoot.innerHTML replacement destroys the old element, so we must
+    // save and restore this state manually.
+    const prevInput = this.shadowRoot.querySelector(".name-filter-input");
+    const nameInputFocused = prevInput && this.shadowRoot.activeElement === prevInput;
+    const nameInputSelStart = nameInputFocused ? prevInput.selectionStart : null;
+    const nameInputSelEnd   = nameInputFocused ? prevInput.selectionEnd   : null;
+
     const allContainers = this._getAllContainers();
 
     const states = ["running", "exited", "paused", "restarting", "starting", "dead", "created", "removing", "stopping", "creating", "initializing", "pulling", "unavailable", "refreshing"];
@@ -737,6 +745,12 @@ class SshDockerPanel extends HTMLElement {
         this._nameFilter = e.target.value;
         this._render();
       });
+      if (nameInputFocused) {
+        nameInput.focus();
+        if (nameInputSelStart !== null) {
+          nameInput.setSelectionRange(nameInputSelStart, nameInputSelEnd);
+        }
+      }
     }
 
     this.shadowRoot.querySelectorAll(".action-btn").forEach((btn) => {
