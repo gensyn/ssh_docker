@@ -78,3 +78,105 @@ class TestFrontend:
         page.wait_for_load_state("networkidle")
         # Page should be accessible and not redirect
         assert page.url.startswith(HA_URL)
+
+    def test_panel_name_filter_input_present(
+        self, page: Page, ensure_integration: str
+    ) -> None:
+        """The SSH Docker panel contains a name-filter text input."""
+        page.goto(f"{HA_URL}/ssh-docker")
+        page.wait_for_load_state("networkidle")
+
+        # The panel uses shadow DOM; reach the input via JavaScript.
+        input_present = page.evaluate(
+            """() => {
+                const panel = document.querySelector("ssh-docker-panel");
+                if (!panel || !panel.shadowRoot) return false;
+                return !!panel.shadowRoot.querySelector(".name-filter-input");
+            }"""
+        )
+        assert input_present, "Name filter input not found in ssh-docker-panel shadow DOM"
+
+    def test_panel_name_filter_hides_non_matching_containers(
+        self, page: Page, ensure_integration: str
+    ) -> None:
+        """Typing a non-matching name into the filter removes containers from the panel."""
+        page.goto(f"{HA_URL}/ssh-docker")
+        page.wait_for_load_state("networkidle")
+
+        # Wait until at least one container card is rendered.
+        page.wait_for_function(
+            """() => {
+                const panel = document.querySelector("ssh-docker-panel");
+                if (!panel || !panel.shadowRoot) return false;
+                return panel.shadowRoot.querySelectorAll(".container-card").length > 0;
+            }""",
+            timeout=15000,
+        )
+
+        # Type a search string that will not match any container name.
+        page.evaluate(
+            """() => {
+                const panel = document.querySelector("ssh-docker-panel");
+                const input = panel.shadowRoot.querySelector(".name-filter-input");
+                input.value = "__no_match_xyzzy__";
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            }"""
+        )
+
+        # After filtering, no container cards should remain.
+        page.wait_for_function(
+            """() => {
+                const panel = document.querySelector("ssh-docker-panel");
+                if (!panel || !panel.shadowRoot) return false;
+                return panel.shadowRoot.querySelectorAll(".container-card").length === 0;
+            }""",
+            timeout=5000,
+        )
+
+    def test_panel_name_filter_case_insensitive(
+        self, page: Page, ensure_integration: str
+    ) -> None:
+        """The name filter matches container names case-insensitively."""
+        page.goto(f"{HA_URL}/ssh-docker")
+        page.wait_for_load_state("networkidle")
+
+        # Wait until at least one container card is rendered.
+        page.wait_for_function(
+            """() => {
+                const panel = document.querySelector("ssh-docker-panel");
+                if (!panel || !panel.shadowRoot) return false;
+                return panel.shadowRoot.querySelectorAll(".container-card").length > 0;
+            }""",
+            timeout=15000,
+        )
+
+        # Retrieve the name of the first container card (case will vary).
+        first_name: str = page.evaluate(
+            """() => {
+                const panel = document.querySelector("ssh-docker-panel");
+                const el = panel.shadowRoot.querySelector(".container-name");
+                return el ? el.textContent.trim() : "";
+            }"""
+        )
+        assert first_name, "Could not read any container name from the panel"
+
+        # Search using swapped case to verify case-insensitive matching.
+        search_term = first_name.swapcase()
+        page.evaluate(
+            f"""() => {{
+                const panel = document.querySelector("ssh-docker-panel");
+                const input = panel.shadowRoot.querySelector(".name-filter-input");
+                input.value = {repr(search_term)};
+                input.dispatchEvent(new Event("input", {{ bubbles: true }}));
+            }}"""
+        )
+
+        # The original container should still be visible.
+        page.wait_for_function(
+            """() => {
+                const panel = document.querySelector("ssh-docker-panel");
+                if (!panel || !panel.shadowRoot) return false;
+                return panel.shadowRoot.querySelectorAll(".container-card").length > 0;
+            }""",
+            timeout=5000,
+        )
