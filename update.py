@@ -14,7 +14,7 @@ from homeassistant.helpers.entity import generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .const import DOMAIN, CONF_SERVICE
+from .const import DOMAIN, CONF_AUTO_UPDATE, CONF_SERVICE
 from .coordinator import SshDockerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,6 +32,8 @@ async def async_setup_entry(
         async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up SSH Docker update platform from a config entry."""
+    if entry.options.get(CONF_AUTO_UPDATE, False):
+        return
     coordinator: SshDockerCoordinator = hass.data[DOMAIN][entry.entry_id]
     update_entity = DockerContainerUpdateEntity(coordinator, entry, hass)
     async_add_entities([update_entity])
