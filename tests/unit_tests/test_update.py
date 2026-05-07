@@ -11,10 +11,10 @@ sys.path.insert(0, absolute_mock_path)
 absolute_plugin_path = str(Path(__file__).parent.parent.parent.parent.absolute())
 sys.path.insert(0, absolute_plugin_path)
 
-from ssh_docker.update import DockerContainerUpdateEntity  # noqa: E402
+from ssh_docker.update import DockerContainerUpdateEntity, async_setup_entry  # noqa: E402
 from ssh_docker.coordinator import SshDockerCoordinator, STATE_UNKNOWN  # noqa: E402
 from ssh_docker.const import (  # noqa: E402
-    DOMAIN, DEFAULT_TIMEOUT,
+    DOMAIN, DEFAULT_TIMEOUT, CONF_AUTO_UPDATE,
 )
 from homeassistant.config_entries import ConfigEntry  # noqa: E402
 
@@ -179,6 +179,45 @@ class TestDockerContainerUpdateEntityInstall(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(ServiceValidationError):
             await entity.async_install(None, False)
+
+
+class TestUpdatePlatformSetup(unittest.IsolatedAsyncioTestCase):
+    """Tests for update platform setup behavior."""
+
+    async def test_async_setup_entry_adds_entity_when_auto_update_disabled(self):
+        """Update entity should be added when auto_update is disabled."""
+        entry = ConfigEntry(
+            entry_id="test_id",
+            data={"name": "my_container", "service": "my_container"},
+            options={CONF_AUTO_UPDATE: False},
+        )
+        mock_hass = MagicMock()
+        coordinator = MagicMock()
+        mock_hass.data = {DOMAIN: {entry.entry_id: coordinator}}
+        async_add_entities = MagicMock()
+
+        await async_setup_entry(mock_hass, entry, async_add_entities)
+
+        async_add_entities.assert_called_once()
+        entities = async_add_entities.call_args.args[0]
+        self.assertEqual(len(entities), 1)
+        self.assertIsInstance(entities[0], DockerContainerUpdateEntity)
+
+    async def test_async_setup_entry_skips_entity_when_auto_update_enabled(self):
+        """Update entity should not be added when auto_update is enabled."""
+        entry = ConfigEntry(
+            entry_id="test_id",
+            data={"name": "my_container", "service": "my_container"},
+            options={CONF_AUTO_UPDATE: True},
+        )
+        mock_hass = MagicMock()
+        coordinator = MagicMock()
+        mock_hass.data = {DOMAIN: {entry.entry_id: coordinator}}
+        async_add_entities = MagicMock()
+
+        await async_setup_entry(mock_hass, entry, async_add_entities)
+
+        async_add_entities.assert_not_called()
 
 
 if __name__ == "__main__":
