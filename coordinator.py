@@ -276,7 +276,7 @@ class SshDockerCoordinator:
         _LOGGER.debug("Fetching data for container %s", service)
 
         info_cmd = (
-            f"{docker_cmd} inspect {service}"
+            f"{docker_cmd} inspect {shlex.quote(service)}"
             f" --format '{{{{.State.Status}}}};{{{{.Created}}}};{{{{.Config.Image}}}};{{{{.Image}}}}'"
         )
         try:
@@ -344,8 +344,8 @@ class SshDockerCoordinator:
         if options.get(CONF_CHECK_FOR_UPDATES, False):
             self.set_pending_state("pulling")
             pull_cmd = (
-                f"{docker_cmd} pull {image_name} > /dev/null 2>&1;"
-                f" {docker_cmd} image inspect {image_name} --format '{{{{.Id}}}}'"
+                f"{docker_cmd} pull {shlex.quote(image_name)} > /dev/null 2>&1;"
+                f" {docker_cmd} image inspect {shlex.quote(image_name)} --format '{{{{.Id}}}}'"
             )
             try:
                 new_image_id, _ = await _ssh_run(
@@ -408,7 +408,7 @@ class SshDockerCoordinator:
         output, exit_status = await _ssh_run(
             self.hass,
             options,
-            f"{docker_cmd} logs {name} 2>&1 | tail -200",
+            f"{docker_cmd} logs {shlex.quote(name)} 2>&1 | tail -200",
         )
         if exit_status != 0:
             _LOGGER.warning(
@@ -443,7 +443,7 @@ class SshDockerCoordinator:
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
         name = self._service
         _, exit_status = await _ssh_run(
-            self.hass, options, f"{docker_cmd} restart {name}"
+            self.hass, options, f"{docker_cmd} restart {shlex.quote(name)}"
         )
         if exit_status != 0:
             _LOGGER.error(
@@ -464,7 +464,7 @@ class SshDockerCoordinator:
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
         name = self._service
         _, exit_status = await _ssh_run(
-            self.hass, options, f"{docker_cmd} stop {name}"
+            self.hass, options, f"{docker_cmd} stop {shlex.quote(name)}"
         )
         if exit_status != 0:
             _LOGGER.error(
@@ -487,7 +487,7 @@ class SshDockerCoordinator:
         _, exit_status = await _ssh_run(
             self.hass,
             options,
-            f"{docker_cmd} stop {name}; {docker_cmd} rm {name}",
+            f"{docker_cmd} stop {shlex.quote(name)}; {docker_cmd} rm {shlex.quote(name)}",
         )
         if exit_status != 0:
             _LOGGER.error(
@@ -527,8 +527,8 @@ class SshDockerCoordinator:
         # Use if/then/else to run docker_create exactly once and preserve its exit code.
         create_cmd = (
             f"if command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1;"
-            f" then {DOCKER_CREATE_EXECUTABLE} {name};"
-            f" else /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}; fi"
+            f" then {DOCKER_CREATE_EXECUTABLE} {shlex.quote(name)};"
+            f" else /usr/bin/{DOCKER_CREATE_EXECUTABLE} {shlex.quote(name)}; fi"
         )
         _, exit_status = await _ssh_run(
             self.hass, options, create_cmd, timeout=DOCKER_CREATE_TIMEOUT
@@ -594,8 +594,8 @@ class SshDockerCoordinator:
             return
         create_cmd = (
             f"if command -v {DOCKER_CREATE_EXECUTABLE} >/dev/null 2>&1;"
-            f" then {DOCKER_CREATE_EXECUTABLE} {name};"
-            f" else /usr/bin/{DOCKER_CREATE_EXECUTABLE} {name}; fi"
+            f" then {DOCKER_CREATE_EXECUTABLE} {shlex.quote(name)};"
+            f" else /usr/bin/{DOCKER_CREATE_EXECUTABLE} {shlex.quote(name)}; fi"
         )
         try:
             _, exit_status = await _ssh_run(self.hass, options, create_cmd)
