@@ -1,0 +1,63 @@
+execute:
+  name: Execute SSH Command
+  description: Executes an SSH command on a remote host and returns stdout, stderr and exit status.
+  fields:
+    host:
+      name: Host
+      description: The hostname or IP address of the remote host.
+      required: true
+      selector:
+        text:
+    username:
+      name: Username
+      description: The SSH username.
+      required: true
+      selector:
+        text:
+    password:
+      name: Password
+      description: The SSH password. Either password or key_file must be provided.
+      required: false
+      selector:
+        text:
+    key_file:
+      name: Key File
+      description: Path to the SSH private key file. Either password or key_file must be provided.
+      required: false
+      selector:
+        text:
+    command:
+      name: Command
+      description: The command to execute. Either command or input must be provided.
+      required: false
+      selector:
+        text:
+    input:
+      name: Input
+      description: Path to a file whose contents are sent as stdin. Either command or input must be provided.
+      required: false
+      selector:
+        text:
+    check_known_hosts:
+      name: Check Known Hosts
+      description: Whether to verify the host key against the known_hosts file. Defaults to true.
+      required: false
+      default: true
+      selector:
+        boolean:
+    known_hosts:
+      name: Known Hosts
+      description: Path to the known_hosts file. Defaults to ~/.ssh/known_hosts.
+      required: false
+      selector:
+        text:
+    timeout:
+      name: Timeout
+      description: Maximum number of seconds to wait for the command to complete. Defaults to 30.
+      required: false
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 3600
+          unit_of_measurement: seconds
