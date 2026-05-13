@@ -1,10 +1,10 @@
 {
   "domain": "ssh_docker",
   "name": "SSH Docker",
-  "after_dependencies": ["http", "lovelace"],
+  "after_dependencies": ["http", "lovelace", "ssh_command"],
   "codeowners": ["@gensyn"],
   "config_flow": true,
-  "dependencies": ["ssh_command"],
+  "dependencies": [],
   "documentation": "https://github.com/gensyn/ssh_docker",
   "homekit": {},
   "iot_class": "local_polling",
