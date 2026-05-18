@@ -13,6 +13,7 @@ services:
       - ./:/config/custom_components/ssh_docker:ro
       # Mount the ssh_command functional copy (required dependency of ssh_docker).
       - ./tests/playwright/ssh_command:/config/custom_components/ssh_command:ro
+      - ./tests/playwright/ssh_command/manifest.playwright.json:/config/custom_components/ssh_command/manifest.json:ro
       # Startup wrapper that pre-populates /etc/hosts before launching HA.
       # Alpine Linux (musl libc) cannot resolve Docker container hostnames via
       # Python's socket module because of iptables/UDP limitations in this
