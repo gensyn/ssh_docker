@@ -418,3 +418,5 @@ This project is licensed under the terms specified in the [MIT License](https://
 ## ⭐ Support
 
 If you find SSH Docker useful, please consider giving it a star on GitHub! It helps others discover the project.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/M5G61ZZY8D)
