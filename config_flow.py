@@ -50,7 +50,7 @@ async def _check_service_exists(
 
     Returns ``None`` when the service is found *or* when the check cannot be
     performed (SSH unreachable, empty output, etc.).  Returns
-    ``"service_not_found"`` only when a non-empty list was retrieved and the
+    ``"docker_service_not_found"`` only when a non-empty list was retrieved and the
     requested name is absent from it.
     """
     docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
@@ -125,7 +125,7 @@ async def _check_service_exists(
         options.get(CONF_HOST, "<unknown>"),
         service_names,
     )
-    return "service_not_found"
+    return "docker_service_not_found"
 
 
 def _build_user_schema(defaults: dict[str, Any]) -> vol.Schema:
@@ -168,6 +168,11 @@ class SshDockerConfigFlow(ConfigFlow, domain=DOMAIN):
             self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step."""
+        if not self.hass.services.has_service(SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE):
+            return self.async_abort(
+                reason="service_not_found",
+            )
+
         errors: dict[str, str] = {}
         discovery = getattr(self, "_discovery_info", {})
 
