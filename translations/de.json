@@ -40,9 +40,10 @@
       "login_failed": "SSH-Anmeldung fehlgeschlagen. Überprüfen Sie Benutzername und Passwort/Schlüsseldatei.",
       "host_not_reachable": "Host ist nicht erreichbar.",
       "connection_timed_out": "Die Verbindung zum Host hat das Zeitlimit überschritten.",
-      "service_not_found": "Der Dienstname wurde auf dem entfernten Host nicht gefunden. Überprüfen Sie den Namen und stellen Sie sicher, dass der Container existiert."
+      "docker_service_not_found": "Der Dienstname wurde auf dem entfernten Host nicht gefunden. Überprüfen Sie den Namen und stellen Sie sicher, dass der Container existiert."
     },
     "abort": {
+      "service_not_found": "Der Service ssh_command.execute wurde nicht gefunden. Bitte installiere SSH Command in HACS und füge die Integration hinzu.",
       "already_configured": "Dieser Docker-Container auf diesem Host ist bereits konfiguriert.",
       "already_in_progress": "Ein Einrichtungsvorgang für diesen Docker-Container auf diesem Host ist bereits aktiv."
     }

@@ -97,12 +97,12 @@ class TestSshDockerConfigFlow(unittest.IsolatedAsyncioTestCase):
             new=AsyncMock(return_value=({"host": "192.168.1.100"}, None)),
         ), unittest.mock.patch(
             "ssh_docker.config_flow._check_service_exists",
-            new=AsyncMock(return_value="service_not_found"),
+            new=AsyncMock(return_value="docker_service_not_found"),
         ):
             result = await flow.async_step_user(user_input)
 
         self.assertEqual(result["type"], "form")
-        self.assertEqual(result["errors"]["base"], "service_not_found")
+        self.assertEqual(result["errors"]["base"], "docker_service_not_found")
 
     async def test_shows_error_when_password_key_file_missing(self):
         """Test that an error is shown when neither password nor key_file is provided."""
@@ -278,7 +278,7 @@ class TestCheckServiceExists(unittest.IsolatedAsyncioTestCase):
             {SSH_CONF_OUTPUT: '["container_a", "container_b"]', SSH_CONF_EXIT_STATUS: 0}
         )
         result = await _check_service_exists(hass, self._base_options(), "missing_container")
-        self.assertEqual(result, "service_not_found")
+        self.assertEqual(result, "docker_service_not_found")
 
     async def test_returns_none_when_service_found_in_line_output(self):
         """Service is in the line-by-line fallback output of docker ps -a."""
@@ -294,7 +294,7 @@ class TestCheckServiceExists(unittest.IsolatedAsyncioTestCase):
             {SSH_CONF_OUTPUT: "container_a\ncontainer_b", SSH_CONF_EXIT_STATUS: 0}
         )
         result = await _check_service_exists(hass, self._base_options(), "other_container")
-        self.assertEqual(result, "service_not_found")
+        self.assertEqual(result, "docker_service_not_found")
 
     async def test_returns_none_when_ssh_fails(self):
         """If the SSH call raises an exception, the check is skipped (returns None)."""
