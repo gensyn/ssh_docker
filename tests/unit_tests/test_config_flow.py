@@ -12,9 +12,9 @@ absolute_plugin_path = str(Path(__file__).parent.parent.parent.parent.absolute()
 sys.path.insert(0, absolute_plugin_path)
 
 from ssh_docker.config_flow import SshDockerConfigFlow, _check_service_exists  # noqa: E402
-from ssh_docker.const import DOMAIN, CONF_SERVICE, SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS  # noqa: E402
+from ssh_docker.const import CONF_SERVICE, SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS  # noqa: E402
 from homeassistant.config_entries import AbortFlowException  # noqa: E402
-from homeassistant.const import CONF_NAME  # noqa: E402
+from homeassistant.const import CONF_NAME, CONF_SOURCE  # noqa: E402
 
 
 class TestSshDockerConfigFlow(unittest.IsolatedAsyncioTestCase):
@@ -191,7 +191,7 @@ class TestSshDockerConfigFlow(unittest.IsolatedAsyncioTestCase):
         """Test that an error is shown when the friendly name is already in use."""
         flow = self._make_flow()
         existing_entry = MagicMock()
-        existing_entry.data = {CONF_NAME: "My Container", CONF_SERVICE: "other_service"}
+        existing_entry.data = {CONF_NAME: "My Container", CONF_SERVICE: "other_service", CONF_SOURCE: "non-ignore"}
         flow.hass.config_entries.async_entries = MagicMock(return_value=[existing_entry])
         user_input = {
             CONF_NAME: "My Container",

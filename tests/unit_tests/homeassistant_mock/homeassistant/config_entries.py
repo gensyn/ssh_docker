@@ -8,6 +8,7 @@ class AbortFlowException(Exception):
 
 
 SOURCE_DISCOVERY = "discovery"
+SOURCE_IGNORE = "ignore"
 
 ConfigFlowResult = dict
 

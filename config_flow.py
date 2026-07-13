@@ -7,6 +7,8 @@ import logging
 from typing import Any
 
 import voluptuous as vol
+
+from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
@@ -190,6 +192,7 @@ class SshDockerConfigFlow(ConfigFlow, domain=DOMAIN):
             existing_names = {
                 e.data[CONF_NAME]
                 for e in self.hass.config_entries.async_entries(DOMAIN)
+                if e.source != config_entries.SOURCE_IGNORE
             }
             if name in existing_names:
                 errors["base"] = "already_configured"
