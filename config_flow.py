@@ -19,6 +19,7 @@ from .const import (
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS,
     DOCKER_SERVICES_EXECUTABLE, DEFAULT_TIMEOUT,
 )
+from .entry_data import get_entry_name
 from .options_flow import SshDockerOptionsFlow, validate_and_build_options
 
 _LOGGER = logging.getLogger(__name__)
@@ -188,7 +189,7 @@ class SshDockerConfigFlow(ConfigFlow, domain=DOMAIN):
 
             # name must be unique across all entries
             existing_names = {
-                e.data[CONF_NAME]
+                get_entry_name(e)
                 for e in self.hass.config_entries.async_entries(DOMAIN)
             }
             if name in existing_names:

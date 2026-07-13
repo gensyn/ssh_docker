@@ -24,6 +24,7 @@ from .const import (
     DOCKER_SERVICES_EXECUTABLE,
 )
 from .coordinator import SshDockerCoordinator, _ssh_run, _check_service_available
+from .entry_data import get_entry_name, get_entry_service
 from .frontend import SshDockerPanelRegistration
 
 _PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.UPDATE]
@@ -197,12 +198,23 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SSH Docker from a config entry."""
-    _LOGGER.debug("Setting up config entry for container %s", entry.data.get(CONF_NAME))
+    if not entry.data.get(CONF_NAME):
+        repaired_name = get_entry_name(entry)
+        repaired_data = {**entry.data, CONF_NAME: repaired_name}
+        _LOGGER.warning(
+            "Config entry %s is missing a name; repairing it with %s",
+            entry.entry_id,
+            repaired_name,
+        )
+        entry.data = repaired_data
+        hass.config_entries.async_update_entry(entry, data=repaired_data)
+
+    _LOGGER.debug("Setting up config entry for container %s", get_entry_name(entry))
 
     # Fail setup if docker_services is present on the host and no longer lists
     # this service in its output.
     if not await _check_service_available(hass, entry):
-        service = entry.data.get(CONF_SERVICE, entry.data.get(CONF_NAME, ""))
+        service = get_entry_service(entry)
         _LOGGER.error(
             "Service %s is no longer listed by %s on %s; refusing to set up entry",
             service,
@@ -222,7 +234,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    _LOGGER.debug("Unloading config entry for container %s", entry.data.get(CONF_NAME))
+    _LOGGER.debug("Unloading config entry for container %s", get_entry_name(entry))
     hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
     return await hass.config_entries.async_unload_platforms(entry, _PLATFORMS)
 
@@ -274,7 +286,7 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
         service_names = [s for s in output.replace(",", " ").split() if s]
 
     configured_services = {
-        e.data.get(CONF_SERVICE, e.data[CONF_NAME])
+        get_entry_service(e)
         for e in hass.config_entries.async_entries(DOMAIN)
         if e.options.get(CONF_HOST) == host
     }

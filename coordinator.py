@@ -24,12 +24,12 @@ from collections.abc import Callable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import ServiceValidationError
 
 from .const import (
-    DOMAIN, CONF_SERVICE, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
+    DOMAIN, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES, CONF_UPDATE_AVAILABLE,
     CONF_CREATED, CONF_IMAGE,
     SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
@@ -39,6 +39,7 @@ from .const import (
     DOCKER_SERVICES_EXECUTABLE,
     get_ssh_semaphore,
 )
+from .entry_data import get_entry_name, get_entry_service
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -126,7 +127,7 @@ async def _check_service_available(hass: HomeAssistant, entry: ConfigEntry) -> b
     startup / reload cycle.
     """
     options = entry.options
-    service = entry.data.get(CONF_SERVICE, entry.data.get(CONF_NAME, ""))
+    service = get_entry_service(entry)
     host = options.get(CONF_HOST, "<unknown>")
 
     now = time.monotonic()
@@ -204,8 +205,8 @@ class SshDockerCoordinator:
         """Initialize the coordinator."""
         self.hass = hass
         self.entry = entry
-        self._name: str = entry.data[CONF_NAME]
-        self._service: str = entry.data.get(CONF_SERVICE, self._name)
+        self._name: str = get_entry_name(entry)
+        self._service: str = get_entry_service(entry)
         self._pending_state: str | None = None
         self._in_auto_update: bool = False
         _host = entry.options.get(CONF_HOST, "")

@@ -15,11 +15,12 @@ ConfigFlowResult = dict
 class ConfigEntry:
     """Mock ConfigEntry."""
 
-    def __init__(self, entry_id="test_entry_id", data=None, options=None):
+    def __init__(self, entry_id="test_entry_id", data=None, options=None, title=""):
         """Initialize the config entry."""
         self.entry_id = entry_id
         self.data = data or {}
         self.options = options or {}
+        self.title = title
 
 
 class OptionsFlow:

@@ -206,6 +206,33 @@ class TestSshDockerConfigFlow(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["type"], "form")
         self.assertEqual(result["errors"]["base"], "already_configured")
 
+    async def test_legacy_entry_missing_name_does_not_crash_new_flow(self):
+        """A legacy entry without a stored name should not break new additions."""
+        flow = self._make_flow()
+        existing_entry = MagicMock()
+        existing_entry.data = {CONF_SERVICE: "legacy_service"}
+        existing_entry.title = "Legacy Container"
+        flow.hass.config_entries.async_entries = MagicMock(return_value=[existing_entry])
+        user_input = {
+            CONF_NAME: "New Container",
+            CONF_SERVICE: "new_service",
+            "host": "192.168.1.100",
+            "username": "user",
+            "password": "pass",
+        }
+
+        with unittest.mock.patch(
+            "ssh_docker.config_flow.validate_and_build_options",
+            new=AsyncMock(return_value=({"host": "192.168.1.100"}, None)),
+        ), unittest.mock.patch(
+            "ssh_docker.config_flow._check_service_exists",
+            new=AsyncMock(return_value=None),
+        ):
+            result = await flow.async_step_user(user_input)
+
+        self.assertEqual(result["type"], "create_entry")
+        self.assertEqual(result["title"], "New Container")
+
     async def test_discovery_step_prefills_ssh_options(self):
         """Test that discovery flow pre-fills SSH options from the discovery data."""
         flow = self._make_flow()

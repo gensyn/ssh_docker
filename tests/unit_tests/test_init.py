@@ -149,7 +149,9 @@ def _make_hass_for_setup():
     """Build a minimal hass mock suitable for async_setup_entry tests."""
     hass = MagicMock()
     hass.data = {}
+    hass.config_entries = MagicMock()
     hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=None)
+    hass.config_entries.async_update_entry = MagicMock()
     # Close any coroutine passed in to prevent "never awaited" RuntimeWarnings.
     hass.async_create_task = lambda coro, *a, **kw: coro.close()
     return hass
@@ -282,6 +284,35 @@ class TestAsyncSetupEntry(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result)
         # hass.data should not contain the coordinator for this entry
         self.assertNotIn(entry.entry_id, hass.data.get(DOMAIN, {}))
+
+    async def test_setup_entry_repairs_missing_name_from_title(self):
+        """Legacy entries missing CONF_NAME should be repaired during setup."""
+        entry = ConfigEntry(
+            entry_id="legacy_entry_id",
+            title="Legacy Friendly Name",
+            data={"service": "legacy_service"},
+            options={
+                "host": "192.168.1.100",
+                "username": "user",
+                "password": "pass",
+                "docker_command": "docker",
+                "check_known_hosts": True,
+            },
+        )
+        hass = _make_hass_for_setup()
+
+        async def mock_ssh_run(h, opts, cmd, timeout=60):
+            return '["legacy_service"]', 0
+
+        with patch("ssh_docker.coordinator._ssh_run", mock_ssh_run):
+            result = await async_setup_entry(hass, entry)
+
+        self.assertTrue(result)
+        self.assertEqual(entry.data["name"], "Legacy Friendly Name")
+        hass.config_entries.async_update_entry.assert_called_once_with(
+            entry,
+            data={"service": "legacy_service", "name": "Legacy Friendly Name"},
+        )
 
     async def test_cache_avoids_second_ssh_call_for_same_host(self):
         """A second entry on the same host reuses the cached docker_services output."""

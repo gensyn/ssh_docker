@@ -9,15 +9,16 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME, CONF_HOST, EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import CONF_HOST, EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant, CoreState
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .const import DOMAIN, CONF_SERVICE
+from .const import DOMAIN
 from .coordinator import SshDockerCoordinator, STATE_UNKNOWN
+from .entry_data import get_entry_name, get_entry_service
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,10 +58,8 @@ class DockerContainerSensor(SensorEntity):
         self.coordinator = coordinator
         self.entry = entry
         self.hass = hass
-        self._name = entry.data[CONF_NAME]
-        # service is the container name used in docker commands; falls back to
-        # name for backwards compatibility with entries created before the split.
-        self._service = entry.data.get(CONF_SERVICE, self._name)
+        self._name = get_entry_name(entry)
+        self._service = get_entry_service(entry)
         self._attr_unique_id = f"{entry.entry_id}_state"
         self.entity_id = generate_entity_id(
             "sensor.ssh_docker_{}", slugify(self._name), hass=hass
