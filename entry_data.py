@@ -12,7 +12,7 @@ def get_entry_name(entry: ConfigEntry) -> str:
     """Return the best available friendly name for a config entry."""
     return (
         entry.data.get(CONF_NAME)
-        or getattr(entry, "title", "")
+        or entry.title
         or entry.data.get(CONF_SERVICE, "")
         or entry.entry_id
     )

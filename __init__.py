@@ -206,7 +206,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.entry_id,
             repaired_name,
         )
-        entry.data = repaired_data
         hass.config_entries.async_update_entry(entry, data=repaired_data)
 
     _LOGGER.debug("Setting up config entry for container %s", get_entry_name(entry))
