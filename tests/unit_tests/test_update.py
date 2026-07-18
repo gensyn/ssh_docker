@@ -168,6 +168,21 @@ class TestDockerContainerUpdateEntityInstall(unittest.IsolatedAsyncioTestCase):
 
         coordinator.async_request_refresh.assert_awaited_once()
 
+    async def test_install_keeps_in_progress_true_while_refresh_runs(self):
+        """in_progress should remain True until coordinator refresh completes."""
+        entity, coordinator = _make_update_entity()
+        coordinator.create = AsyncMock()
+
+        async def _refresh_side_effect():
+            self.assertTrue(entity._attr_in_progress)
+
+        coordinator.async_request_refresh = AsyncMock(side_effect=_refresh_side_effect)
+
+        await entity.async_install(None, False)
+
+        coordinator.async_request_refresh.assert_awaited_once()
+        self.assertFalse(entity._attr_in_progress)
+
     async def test_install_raises_when_coordinator_create_fails(self):
         """async_install should propagate ServiceValidationError from coordinator.create()."""
         entity, coordinator = _make_update_entity()
