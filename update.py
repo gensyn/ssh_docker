@@ -133,7 +133,9 @@ class DockerContainerUpdateEntity(UpdateEntity):
         try:
             await self.coordinator.create()
         finally:
-            self._attr_in_progress = False
-            self.async_write_ha_state()
             # Refresh coordinator so the new container state is reflected quickly.
-            await self.coordinator.async_request_refresh()
+            try:
+                await self.coordinator.async_request_refresh()
+            finally:
+                self._attr_in_progress = False
+                self.async_write_ha_state()
