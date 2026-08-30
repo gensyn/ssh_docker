@@ -14,7 +14,7 @@ from homeassistant.helpers.entity import generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .const import DOMAIN, CONF_AUTO_UPDATE, CONF_SERVICE
+from .const import DOMAIN, CONF_SERVICE
 from .coordinator import SshDockerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
