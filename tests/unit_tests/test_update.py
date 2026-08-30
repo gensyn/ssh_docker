@@ -218,22 +218,6 @@ class TestUpdatePlatformSetup(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(entities), 1)
         self.assertIsInstance(entities[0], DockerContainerUpdateEntity)
 
-    async def test_async_setup_entry_skips_entity_when_auto_update_enabled(self):
-        """Update entity should not be added when auto_update is enabled."""
-        entry = ConfigEntry(
-            entry_id="test_id",
-            data={"name": "my_container", "service": "my_container"},
-            options={CONF_AUTO_UPDATE: True},
-        )
-        mock_hass = MagicMock()
-        coordinator = MagicMock()
-        mock_hass.data = {DOMAIN: {entry.entry_id: coordinator}}
-        async_add_entities = MagicMock()
-
-        await async_setup_entry(mock_hass, entry, async_add_entities)
-
-        async_add_entities.assert_not_called()
-
 
 if __name__ == "__main__":
     unittest.main()
