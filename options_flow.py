@@ -121,9 +121,8 @@ async def validate_and_build_options(
 
 
 STEP_OPTIONS_DATA_SCHEMA = vol.Schema(
-    {
         vol.Required(CONF_HOST): str,
-        vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
+        vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
         vol.Required(CONF_USERNAME): str,
         vol.Optional(CONF_PASSWORD): str,
         vol.Optional(CONF_KEY_FILE): str,
