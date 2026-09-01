@@ -10,7 +10,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_NAME
+from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_NAME, CONF_COMMAND, CONF_TIMEOUT
 from homeassistant.core import HomeAssistant, callback
 
 from .const import (
@@ -71,18 +71,18 @@ async def _check_service_exists(
         CONF_HOST: options.get(CONF_HOST, ""),
         CONF_PORT: options.get(CONF_PORT, DEFAULT_PORT),
         CONF_USERNAME: options.get(CONF_USERNAME, ""),
-        "check_known_hosts": options.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
-        "command": discover_cmd,
-        "timeout": DEFAULT_TIMEOUT,
+        CONF_CHECK_KNOWN_HOSTS: options.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
+        CONF_COMMAND: discover_cmd,
+        CONF_TIMEOUT: DEFAULT_TIMEOUT,
     }
     if options.get(CONF_PASSWORD):
         service_data[CONF_PASSWORD] = options[CONF_PASSWORD]
     if options.get(CONF_KEY_FILE):
-        service_data["key_file"] = options[CONF_KEY_FILE]
-    if options.get(CONF_PASSPHRASE):
-        service_data["passphrase"] = options[CONF_PASSPHRASE]
+        service_data[CONF_KEY_FILE] = options[CONF_KEY_FILE]
+        if options.get(CONF_PASSPHRASE):
+            service_data[CONF_PASSPHRASE] = options[CONF_PASSPHRASE]
     if options.get(CONF_KNOWN_HOSTS):
-        service_data["known_hosts"] = options[CONF_KNOWN_HOSTS]
+        service_data[CONF_KNOWN_HOSTS] = options[CONF_KNOWN_HOSTS]
 
     try:
         response = await hass.services.async_call(

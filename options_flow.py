@@ -7,7 +7,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import OptionsFlow, ConfigFlowResult
-from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_COMMAND, CONF_TIMEOUT
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError, HomeAssistantError
 
@@ -42,18 +42,18 @@ async def validate_and_build_options(
         CONF_HOST: user_input[CONF_HOST],
         CONF_PORT: user_input.get(CONF_PORT, DEFAULT_PORT),
         CONF_USERNAME: user_input[CONF_USERNAME],
-        "check_known_hosts": user_input.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
-        "command": f"{docker_cmd} ps -q",
-        "timeout": DEFAULT_TIMEOUT,
+        CONF_CHECK_KNOWN_HOSTS: user_input.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
+        CONF_COMMAND: f"{docker_cmd} ps -q",
+        CONF_TIMEOUT: DEFAULT_TIMEOUT,
     }
     if has_password:
         service_data[CONF_PASSWORD] = user_input[CONF_PASSWORD]
     if has_key_file:
-        service_data["key_file"] = user_input[CONF_KEY_FILE]
-    if user_input.get(CONF_PASSPHRASE):
-        service_data["passphrase"] = user_input[CONF_PASSPHRASE]
+        service_data[CONF_KEY_FILE] = user_input[CONF_KEY_FILE]
+        if user_input.get(CONF_PASSPHRASE):
+            service_data[CONF_PASSPHRASE] = user_input[CONF_PASSPHRASE]
     if user_input.get(CONF_KNOWN_HOSTS):
-        service_data["known_hosts"] = user_input[CONF_KNOWN_HOSTS]
+        service_data[CONF_KNOWN_HOSTS] = user_input[CONF_KNOWN_HOSTS]
 
     _LOGGER.debug(
         "Validating SSH connection to %s as %s",
