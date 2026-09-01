@@ -15,11 +15,11 @@ from homeassistant.helpers import config_validation as cv, entity_registry
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
-    DOMAIN, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
+    DOMAIN, CONF_PORT, CONF_KEY_FILE, CONF_PASSPHRASE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES, CONF_SERVICE,
-    SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
-    SERVICE_GET_LOGS, SERVICE_EXECUTE_COMMAND,
-    DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
+    SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH, SERVICE_GET_LOGS,
+    SERVICE_EXECUTE_COMMAND, DEFAULT_DOCKER_COMMAND, DEFAULT_PORT, DEFAULT_PASSPHRASE,
+    DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
     DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     DOCKER_SERVICES_EXECUTABLE,
 )
@@ -220,6 +220,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate old config entries to include SSH port and passphrase defaults."""
+    if config_entry.version > 2:
+        return False
+
+    if config_entry.version == 1:
+        new_options = dict(config_entry.options)
+        new_options.setdefault(CONF_PORT, DEFAULT_PORT)
+        new_options.setdefault(CONF_PASSPHRASE, DEFAULT_PASSPHRASE)
+        hass.config_entries.async_update_entry(
+            config_entry,
+            options=new_options,
+            version=2,
+        )
+        _LOGGER.info("Migrated config entry %s from version 1 to 2", config_entry.entry_id)
+
+    return True
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading config entry for container %s", entry.data.get(CONF_NAME))
@@ -290,6 +309,7 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             CONF_SERVICE: service_name,
             CONF_NAME: service_name[0].upper() + service_name[1:] if service_name else service_name,
             CONF_HOST: host,
+            CONF_PORT: options.get(CONF_PORT, DEFAULT_PORT),
             CONF_USERNAME: options.get(CONF_USERNAME, ""),
             CONF_DOCKER_COMMAND: options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND),
             CONF_CHECK_KNOWN_HOSTS: options.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
@@ -300,6 +320,7 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             discovery_data[CONF_PASSWORD] = options[CONF_PASSWORD]
         if options.get(CONF_KEY_FILE):
             discovery_data[CONF_KEY_FILE] = options[CONF_KEY_FILE]
+        discovery_data[CONF_PASSPHRASE] = options.get(CONF_PASSPHRASE, DEFAULT_PASSPHRASE)
         if options.get(CONF_KNOWN_HOSTS):
             discovery_data[CONF_KNOWN_HOSTS] = options[CONF_KNOWN_HOSTS]
 

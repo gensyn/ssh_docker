@@ -12,10 +12,10 @@ sys.path.insert(0, absolute_mock_path)
 absolute_plugin_path = str(Path(__file__).parent.parent.parent.parent.absolute())
 sys.path.insert(0, absolute_plugin_path)
 
-from ssh_docker import async_setup, async_setup_entry  # noqa: E402
+from ssh_docker import async_setup, async_setup_entry, async_migrate_entry  # noqa: E402
 from ssh_docker.const import (  # noqa: E402
     DOMAIN, SERVICE_CREATE, SERVICE_RESTART, SERVICE_STOP, SERVICE_REMOVE, SERVICE_REFRESH,
-    SERVICE_GET_LOGS, SERVICE_EXECUTE_COMMAND, DEFAULT_TIMEOUT,
+    SERVICE_GET_LOGS, SERVICE_EXECUTE_COMMAND, DEFAULT_TIMEOUT, DEFAULT_PORT, DEFAULT_PASSPHRASE,
 )
 from ssh_docker.frontend import SshDockerPanelRegistration  # noqa: E402
 from homeassistant.config_entries import ConfigEntry  # noqa: E402
@@ -137,8 +137,10 @@ def _make_entry(service="my_container", host="192.168.1.100"):
         data={"name": service, "service": service},
         options={
             "host": host,
+            "port": DEFAULT_PORT,
             "username": "user",
             "password": "pass",
+            "passphrase": DEFAULT_PASSPHRASE,
             "docker_command": "docker",
             "check_known_hosts": True,
         },
@@ -421,6 +423,39 @@ class TestExecuteCommandTimeout(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(output, "custom output")
         self.assertEqual(exit_status, 0)
         self.assertEqual(captured_timeout, 120)
+
+
+class TestAsyncMigrateEntry(unittest.IsolatedAsyncioTestCase):
+    """Tests for async_migrate_entry."""
+
+    async def test_migrates_v1_entry_with_default_port_and_passphrase(self):
+        """Version 1 entries get default port and empty passphrase."""
+        hass = MagicMock()
+        hass.config_entries.async_update_entry = MagicMock()
+        entry = MagicMock()
+        entry.entry_id = "entry_id"
+        entry.version = 1
+        entry.options = {"host": "192.168.1.100", "username": "user", "password": "pass"}
+
+        result = await async_migrate_entry(hass, entry)
+        self.assertTrue(result)
+        hass.config_entries.async_update_entry.assert_called_once()
+        kwargs = hass.config_entries.async_update_entry.call_args.kwargs
+        self.assertEqual(kwargs["version"], 2)
+        self.assertEqual(kwargs["options"]["port"], DEFAULT_PORT)
+        self.assertEqual(kwargs["options"]["passphrase"], DEFAULT_PASSPHRASE)
+
+    async def test_returns_false_for_newer_version(self):
+        """Entries newer than supported migration version return False."""
+        hass = MagicMock()
+        hass.config_entries.async_update_entry = MagicMock()
+        entry = MagicMock()
+        entry.entry_id = "entry_id"
+        entry.version = 3
+        entry.options = {}
+        result = await async_migrate_entry(hass, entry)
+        self.assertFalse(result)
+        hass.config_entries.async_update_entry.assert_not_called()
 
 
 if __name__ == "__main__":

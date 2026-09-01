@@ -24,17 +24,17 @@ from collections.abc import Callable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_HOST, CONF_NAME, CONF_USERNAME, CONF_PASSWORD, CONF_COMMAND, CONF_TIMEOUT
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from .const import (
-    DOMAIN, CONF_SERVICE, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
+    DOMAIN, CONF_SERVICE, CONF_PORT, CONF_KEY_FILE, CONF_PASSPHRASE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES, CONF_UPDATE_AVAILABLE,
     CONF_CREATED, CONF_IMAGE,
     SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS,
-    DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
+    DEFAULT_DOCKER_COMMAND, DEFAULT_PORT, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_TIMEOUT,
     DOCKER_CREATE_EXECUTABLE, DOCKER_CREATE_TIMEOUT, DOCKER_PULL_TIMEOUT,
     DOCKER_SERVICES_EXECUTABLE,
     get_ssh_semaphore,
@@ -76,17 +76,20 @@ async def _ssh_run(
     )
     service_data: dict[str, Any] = {
         CONF_HOST: options[CONF_HOST],
+        CONF_PORT: options.get(CONF_PORT, DEFAULT_PORT),
         CONF_USERNAME: options[CONF_USERNAME],
-        "check_known_hosts": options.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
-        "command": command,
-        "timeout": timeout,
+        CONF_CHECK_KNOWN_HOSTS: options.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
+        CONF_COMMAND: command,
+        CONF_TIMEOUT: timeout,
     }
     if options.get(CONF_PASSWORD):
         service_data[CONF_PASSWORD] = options[CONF_PASSWORD]
     if options.get(CONF_KEY_FILE):
-        service_data["key_file"] = options[CONF_KEY_FILE]
+        service_data[CONF_KEY_FILE] = options[CONF_KEY_FILE]
+        if options.get(CONF_PASSPHRASE):
+            service_data[CONF_PASSPHRASE] = options[CONF_PASSPHRASE]
     if options.get(CONF_KNOWN_HOSTS):
-        service_data["known_hosts"] = options[CONF_KNOWN_HOSTS]
+        service_data[CONF_KNOWN_HOSTS] = options[CONF_KNOWN_HOSTS]
 
     async def _call() -> Any:
         return await hass.services.async_call(

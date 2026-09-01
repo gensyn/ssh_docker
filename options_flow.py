@@ -7,14 +7,14 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import OptionsFlow, ConfigFlowResult
-from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_COMMAND, CONF_TIMEOUT
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError, HomeAssistantError
 
 from .const import (
-    CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
+    CONF_PORT, CONF_KEY_FILE, CONF_PASSPHRASE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES,
-    DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_AUTO_UPDATE,
+    DEFAULT_DOCKER_COMMAND, DEFAULT_PORT, DEFAULT_PASSPHRASE, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_AUTO_UPDATE,
     DEFAULT_CHECK_FOR_UPDATES, DEFAULT_TIMEOUT,
     SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE, SSH_CONF_EXIT_STATUS,
 )
@@ -40,17 +40,20 @@ async def validate_and_build_options(
 
     service_data: dict[str, Any] = {
         CONF_HOST: user_input[CONF_HOST],
+        CONF_PORT: user_input.get(CONF_PORT, DEFAULT_PORT),
         CONF_USERNAME: user_input[CONF_USERNAME],
-        "check_known_hosts": user_input.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
-        "command": f"{docker_cmd} ps -q",
-        "timeout": DEFAULT_TIMEOUT,
+        CONF_CHECK_KNOWN_HOSTS: user_input.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
+        CONF_COMMAND: f"{docker_cmd} ps -q",
+        CONF_TIMEOUT: DEFAULT_TIMEOUT,
     }
     if has_password:
         service_data[CONF_PASSWORD] = user_input[CONF_PASSWORD]
     if has_key_file:
-        service_data["key_file"] = user_input[CONF_KEY_FILE]
+        service_data[CONF_KEY_FILE] = user_input[CONF_KEY_FILE]
+        if user_input.get(CONF_PASSPHRASE):
+            service_data[CONF_PASSPHRASE] = user_input[CONF_PASSPHRASE]
     if user_input.get(CONF_KNOWN_HOSTS):
-        service_data["known_hosts"] = user_input[CONF_KNOWN_HOSTS]
+        service_data[CONF_KNOWN_HOSTS] = user_input[CONF_KNOWN_HOSTS]
 
     _LOGGER.debug(
         "Validating SSH connection to %s as %s",
@@ -99,7 +102,9 @@ async def validate_and_build_options(
     _LOGGER.debug("SSH validation successful for host %s", user_input[CONF_HOST])
     options: dict[str, Any] = {
         CONF_HOST: user_input[CONF_HOST],
+        CONF_PORT: user_input.get(CONF_PORT, DEFAULT_PORT),
         CONF_USERNAME: user_input[CONF_USERNAME],
+        CONF_PASSPHRASE: user_input.get(CONF_PASSPHRASE, DEFAULT_PASSPHRASE),
         CONF_CHECK_KNOWN_HOSTS: user_input.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
         CONF_DOCKER_COMMAND: docker_cmd,
         CONF_AUTO_UPDATE: user_input.get(CONF_AUTO_UPDATE, DEFAULT_AUTO_UPDATE),
@@ -115,12 +120,13 @@ async def validate_and_build_options(
     return options, None
 
 
-STEP_OPTIONS_DATA_SCHEMA = vol.Schema(
-    {
+STEP_OPTIONS_DATA_SCHEMA = vol.Schema({
         vol.Required(CONF_HOST): str,
+        vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(int, vol.Range(min=1, max=65535)),
         vol.Required(CONF_USERNAME): str,
         vol.Optional(CONF_PASSWORD): str,
         vol.Optional(CONF_KEY_FILE): str,
+        vol.Optional(CONF_PASSPHRASE, default=DEFAULT_PASSPHRASE): str,
         vol.Optional(CONF_CHECK_KNOWN_HOSTS, default=DEFAULT_CHECK_KNOWN_HOSTS): bool,
         vol.Optional(CONF_KNOWN_HOSTS): str,
         vol.Optional(CONF_DOCKER_COMMAND, default=DEFAULT_DOCKER_COMMAND): str,
@@ -156,9 +162,14 @@ class SshDockerOptionsFlow(OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required(CONF_HOST, default=current.get(CONF_HOST, "")): str,
+                vol.Optional(CONF_PORT, default=current.get(CONF_PORT, DEFAULT_PORT)): int,
                 vol.Required(CONF_USERNAME, default=current.get(CONF_USERNAME, "")): str,
                 vol.Optional(CONF_PASSWORD, default=current.get(CONF_PASSWORD, "")): str,
                 vol.Optional(CONF_KEY_FILE, default=current.get(CONF_KEY_FILE, "")): str,
+                vol.Optional(
+                    CONF_PASSPHRASE,
+                    default=current.get(CONF_PASSPHRASE, DEFAULT_PASSPHRASE),
+                ): str,
                 vol.Optional(
                     CONF_CHECK_KNOWN_HOSTS,
                     default=current.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),

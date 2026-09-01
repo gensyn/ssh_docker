@@ -6,7 +6,9 @@ DOMAIN = "ssh_docker"
 
 
 CONF_SERVICE = "service"
+CONF_PORT = "port"
 CONF_KEY_FILE = "key_file"
+CONF_PASSPHRASE = "passphrase"
 CONF_CHECK_KNOWN_HOSTS = "check_known_hosts"
 CONF_KNOWN_HOSTS = "known_hosts"
 CONF_DOCKER_COMMAND = "docker_command"
@@ -34,6 +36,8 @@ SERVICE_GET_LOGS = "get_logs"
 SERVICE_EXECUTE_COMMAND = "execute_command"
 
 DEFAULT_DOCKER_COMMAND = "docker"
+DEFAULT_PORT = 22
+DEFAULT_PASSPHRASE = ""
 DEFAULT_CHECK_KNOWN_HOSTS = True
 DEFAULT_AUTO_UPDATE = False
 DEFAULT_CHECK_FOR_UPDATES = False
