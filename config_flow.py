@@ -14,9 +14,10 @@ from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_NA
 from homeassistant.core import HomeAssistant, callback
 
 from .const import (
-    DOMAIN, CONF_SERVICE, CONF_KEY_FILE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
+    DOMAIN, CONF_SERVICE, CONF_PORT, CONF_KEY_FILE, CONF_PASSPHRASE, CONF_CHECK_KNOWN_HOSTS, CONF_KNOWN_HOSTS,
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES,
-    DEFAULT_DOCKER_COMMAND, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
+    DEFAULT_DOCKER_COMMAND, DEFAULT_PORT, DEFAULT_PASSPHRASE,
+    DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE,
     SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS,
     DOCKER_SERVICES_EXECUTABLE, DEFAULT_TIMEOUT,
@@ -30,9 +31,11 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_NAME): str,
         vol.Required(CONF_SERVICE): str,
         vol.Required(CONF_HOST): str,
+        vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
         vol.Required(CONF_USERNAME): str,
         vol.Optional(CONF_PASSWORD): str,
         vol.Optional(CONF_KEY_FILE): str,
+        vol.Optional(CONF_PASSPHRASE, default=DEFAULT_PASSPHRASE): str,
         vol.Optional(CONF_CHECK_KNOWN_HOSTS, default=DEFAULT_CHECK_KNOWN_HOSTS): bool,
         vol.Optional(CONF_KNOWN_HOSTS): str,
         vol.Optional(CONF_DOCKER_COMMAND, default=DEFAULT_DOCKER_COMMAND): str,
@@ -66,6 +69,7 @@ async def _check_service_exists(
 
     service_data: dict[str, Any] = {
         CONF_HOST: options.get(CONF_HOST, ""),
+        CONF_PORT: options.get(CONF_PORT, DEFAULT_PORT),
         CONF_USERNAME: options.get(CONF_USERNAME, ""),
         "check_known_hosts": options.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
         "command": discover_cmd,
@@ -75,6 +79,8 @@ async def _check_service_exists(
         service_data[CONF_PASSWORD] = options[CONF_PASSWORD]
     if options.get(CONF_KEY_FILE):
         service_data["key_file"] = options[CONF_KEY_FILE]
+    if options.get(CONF_PASSPHRASE):
+        service_data["passphrase"] = options[CONF_PASSPHRASE]
     if options.get(CONF_KNOWN_HOSTS):
         service_data["known_hosts"] = options[CONF_KNOWN_HOSTS]
 
@@ -137,9 +143,14 @@ def _build_user_schema(defaults: dict[str, Any]) -> vol.Schema:
             vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, "")): str,
             vol.Required(CONF_SERVICE, default=defaults.get(CONF_SERVICE, "")): str,
             vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "")): str,
+            vol.Optional(CONF_PORT, default=defaults.get(CONF_PORT, DEFAULT_PORT)): int,
             vol.Required(CONF_USERNAME, default=defaults.get(CONF_USERNAME, "")): str,
             vol.Optional(CONF_PASSWORD, default=defaults.get(CONF_PASSWORD, "")): str,
             vol.Optional(CONF_KEY_FILE, default=defaults.get(CONF_KEY_FILE, "")): str,
+            vol.Optional(
+                CONF_PASSPHRASE,
+                default=defaults.get(CONF_PASSPHRASE, DEFAULT_PASSPHRASE),
+            ): str,
             vol.Optional(
                 CONF_CHECK_KNOWN_HOSTS,
                 default=defaults.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS),
@@ -164,7 +175,7 @@ def _build_user_schema(defaults: dict[str, Any]) -> vol.Schema:
 class SshDockerConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for SSH Docker."""
 
-    VERSION = 1
+    VERSION = 2
 
     async def async_step_user(
             self, user_input: dict[str, Any] | None = None

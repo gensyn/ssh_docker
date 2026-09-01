@@ -12,7 +12,9 @@ absolute_plugin_path = str(Path(__file__).parent.parent.parent.parent.absolute()
 sys.path.insert(0, absolute_plugin_path)
 
 from ssh_docker.config_flow import SshDockerConfigFlow, _check_service_exists  # noqa: E402
-from ssh_docker.const import CONF_SERVICE, SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS  # noqa: E402
+from ssh_docker.const import (  # noqa: E402
+    CONF_SERVICE, CONF_PORT, CONF_PASSPHRASE, DEFAULT_PORT, SSH_CONF_OUTPUT, SSH_CONF_EXIT_STATUS,
+)
 from homeassistant.config_entries import AbortFlowException  # noqa: E402
 from homeassistant.const import CONF_NAME, CONF_SOURCE  # noqa: E402
 
@@ -213,8 +215,10 @@ class TestSshDockerConfigFlow(unittest.IsolatedAsyncioTestCase):
             CONF_NAME: "discovered_container",
             CONF_SERVICE: "discovered_container",
             "host": "192.168.1.100",
+            "port": 2222,
             "username": "admin",
             "password": "secret",
+            "passphrase": "key-passphrase",
             "docker_command": "sudo docker",
         }
 
@@ -226,8 +230,10 @@ class TestSshDockerConfigFlow(unittest.IsolatedAsyncioTestCase):
         # The stored discovery info should have the service name and all SSH options
         self.assertEqual(flow._discovery_info[CONF_SERVICE], "discovered_container")
         self.assertEqual(flow._discovery_info["host"], "192.168.1.100")
+        self.assertEqual(flow._discovery_info["port"], 2222)
         self.assertEqual(flow._discovery_info["username"], "admin")
         self.assertEqual(flow._discovery_info["password"], "secret")
+        self.assertEqual(flow._discovery_info["passphrase"], "key-passphrase")
         self.assertEqual(flow._discovery_info["docker_command"], "sudo docker")
 
     async def test_discovery_step_aborts_when_already_configured(self):
@@ -258,8 +264,10 @@ class TestCheckServiceExists(unittest.IsolatedAsyncioTestCase):
     def _base_options(self) -> dict:
         return {
             "host": "192.168.1.100",
+            "port": DEFAULT_PORT,
             "username": "user",
             "password": "pass",
+            "passphrase": "",
             "check_known_hosts": True,
             "docker_command": "docker",
         }
@@ -316,6 +324,47 @@ class TestCheckServiceExists(unittest.IsolatedAsyncioTestCase):
         hass = self._make_hass({SSH_CONF_OUTPUT: "", SSH_CONF_EXIT_STATUS: 0})
         result = await _check_service_exists(hass, self._base_options(), "container_a")
         self.assertIsNone(result)
+
+    async def test_forwards_port_to_ssh_command(self):
+        """Configured SSH port is forwarded to ssh_command.execute."""
+        hass = self._make_hass(
+            {SSH_CONF_OUTPUT: '["container_a"]', SSH_CONF_EXIT_STATUS: 0}
+        )
+        options = self._base_options()
+        options[CONF_PORT] = 2200
+
+        await _check_service_exists(hass, options, "container_a")
+
+        service_data = hass.services.async_call.call_args.args[2]
+        self.assertEqual(service_data[CONF_PORT], 2200)
+
+    async def test_omits_empty_passphrase_from_ssh_command(self):
+        """Empty passphrase is not forwarded to ssh_command.execute."""
+        hass = self._make_hass(
+            {SSH_CONF_OUTPUT: '["container_a"]', SSH_CONF_EXIT_STATUS: 0}
+        )
+        options = self._base_options()
+        options["key_file"] = "/config/id_rsa"
+        options[CONF_PASSPHRASE] = ""
+
+        await _check_service_exists(hass, options, "container_a")
+
+        service_data = hass.services.async_call.call_args.args[2]
+        self.assertNotIn("passphrase", service_data)
+
+    async def test_forwards_non_empty_passphrase_to_ssh_command(self):
+        """Non-empty passphrase is forwarded to ssh_command.execute."""
+        hass = self._make_hass(
+            {SSH_CONF_OUTPUT: '["container_a"]', SSH_CONF_EXIT_STATUS: 0}
+        )
+        options = self._base_options()
+        options["key_file"] = "/config/id_rsa"
+        options[CONF_PASSPHRASE] = "secret"
+
+        await _check_service_exists(hass, options, "container_a")
+
+        service_data = hass.services.async_call.call_args.args[2]
+        self.assertEqual(service_data["passphrase"], "secret")
 
 
 if __name__ == "__main__":

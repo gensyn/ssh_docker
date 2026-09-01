@@ -85,9 +85,11 @@ Fill in the following fields:
 | **Name** | ✅ | Friendly display name for this entry (must be unique across all entries) |
 | **Service** | ✅ | Name of the Docker container on the remote host |
 | **Host** | ✅ | Hostname or IP address of the remote server |
+| **Port** | — | SSH port of the remote server (default: `22`) |
 | **Username** | ✅ | SSH username |
 | **Password** | ⚠️ | SSH password (use instead of `key_file`) |
 | **Key file** | ⚠️ | Path to an SSH private key file on the HA host (use instead of `password`) |
+| **Passphrase** | — | Passphrase for `key_file` (default: empty) |
 | **Check known hosts** | — | Verify host key against known hosts (default: `true`) |
 | **Known hosts** | — | Path or string of the known hosts (only valid when `check_known_hosts` is `true`) |
 | **Docker command** | — | The Docker executable on the remote host, e.g. `docker`, `sudo docker`, `podman` (default: `docker`) |
@@ -96,7 +98,7 @@ Fill in the following fields:
 
 > **Note:** Either `password` or `key_file` must be provided.
 
-When a new entry is added the integration validates the SSH connection and verifies that the named container exists on the host before creating the entry.
+When a new entry is added the integration validates the SSH connection and verifies that the named container exists on the host before creating the entry. `passphrase` is only sent to `ssh_command.execute` when a non-empty value is configured.
 
 ### ⚙️ Options
 
@@ -253,7 +255,7 @@ This service is useful for one-off diagnostic commands, health checks, or config
 
 ## 🔍 Automatic Discovery
 
-When a new entry is successfully added, SSH Docker automatically scans the host for additional Docker containers and offers to add unconfigured ones as new entries. The discovery form is pre-filled with all SSH and Docker settings from the original entry — including the `check_for_updates` and `auto_update` values — so the user only needs to confirm the container name.
+When a new entry is successfully added, SSH Docker automatically scans the host for additional Docker containers and offers to add unconfigured ones as new entries. The discovery form is pre-filled with all SSH and Docker settings from the original entry — including `port`, `check_for_updates`, and `auto_update` — so the user only needs to confirm the container name.
 
 Discovered container names are automatically capitalized in the **Name** field (e.g., `grocy` → `Grocy`) while the **Service** field retains the original lowercase name.
 
