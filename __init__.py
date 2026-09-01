@@ -320,8 +320,7 @@ async def _discover_services(hass: HomeAssistant, entry: ConfigEntry) -> None:
             discovery_data[CONF_PASSWORD] = options[CONF_PASSWORD]
         if options.get(CONF_KEY_FILE):
             discovery_data[CONF_KEY_FILE] = options[CONF_KEY_FILE]
-        if CONF_PASSPHRASE in options:
-            discovery_data[CONF_PASSPHRASE] = options.get(CONF_PASSPHRASE, DEFAULT_PASSPHRASE)
+        discovery_data[CONF_PASSPHRASE] = options.get(CONF_PASSPHRASE, DEFAULT_PASSPHRASE)
         if options.get(CONF_KNOWN_HOSTS):
             discovery_data[CONF_KNOWN_HOSTS] = options[CONF_KNOWN_HOSTS]
 
