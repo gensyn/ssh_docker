@@ -75,6 +75,8 @@ async def validate_and_build_options(
                 user_input[CONF_HOST],
                 exit_status,
             )
+            if exit_status == 127:
+                return {}, "docker_command_not_found"
             return {}, "docker_command_failed"
     except ServiceValidationError as exc:
         translation_key = exc.translation_key if hasattr(exc, "translation_key") else "cannot_connect"

@@ -385,6 +385,22 @@ Community contributions for additional languages are welcome!
 
 ---
 
+## ❗ Error Codes
+
+Errors shown while adding or reconfiguring a container are prefixed with a code.
+
+| Code | Meaning | What to do |
+|------|---------|------------|
+| E001 | Neither password nor key file was provided. | Provide one of them. |
+| E002 | Cannot connect to the remote host. | Check host, port and network. |
+| E003 | The docker command exited with an error. | Check the docker command and that the user may run it (e.g. `sudo` or docker group). |
+| E004 | The host key could not be verified. | Check the known hosts file or disable the known hosts check. |
+| E005 | SSH login failed. | Check username and password/key file. |
+| E006 | Host is not reachable. | Check the host address and network. |
+| E007 | The connection timed out. | Check that the host is online and the port is correct. |
+| E008 | The container name was not found on the host. | Check the name with `docker ps -a` on the host. |
+| E009 | The docker executable was not found (exit status 127). | Non-interactive SSH sessions may not have `docker` on the `PATH` (common on QNAP/Synology NAS). Enter the absolute path as Docker Command (e.g. `/usr/bin/docker`) or symlink it into `/usr/bin`. |
+
 ## ⚠️ Known Issues
 
 - If you are using HassOS and enable `check_known_hosts` without explicitly providing `known_hosts`, this may fail because the default known hosts file may not be accessible from within Home Assistant. Either disable host checking (not recommended) or provide `known_hosts` explicitly.
