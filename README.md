@@ -401,6 +401,7 @@ Errors shown while adding or reconfiguring a container are prefixed with a code.
 | E008 | The container name was not found on the host.                                                                                                 | Check the name with `docker ps -a` on the host.                                                                                                                                                   |
 | E009 | The docker executable was not found (exit status 127).                                                                                        | Non-interactive SSH sessions may not have `docker` on the `PATH` (common on QNAP/Synology NAS). Enter the absolute path as Docker Command (e.g. `/usr/bin/docker`) or symlink it into `/usr/bin`. |
 | E010 | The known hosts file was not found (SSH check enabled).                                                                                       | Provide the path to an existing known hosts file, create the default `~/.ssh/known_hosts` of the user running Home Assistant, or disable *Check Known Hosts*.                                     |
+| E011 | The known hosts file was provided but 'Check Known Hosts' is disabled.                                                                        | Either enable 'Check Known Hosts' or remove the known hosts file path.                                                                                                                            |
 
 ## ⚠️ Known Issues
 
