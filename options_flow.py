@@ -93,6 +93,15 @@ async def validate_and_build_options(
             exc,
         )
         return {}, "cannot_connect"
+    except FileNotFoundError as exc:
+        _LOGGER.warning(
+            "SSH validation for host %s raised FileNotFoundError: %s",
+            user_input[CONF_HOST],
+            exc,
+        )
+        if "known_hosts" in str(exc.filename or ""):
+            return {}, "known_hosts_not_found"
+        return {}, "cannot_connect"
     except Exception as exc:  # pylint: disable=broad-except
         _LOGGER.warning(
             "SSH validation for host %s raised an unexpected exception: %s",
