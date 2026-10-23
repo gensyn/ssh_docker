@@ -158,7 +158,7 @@ When **Check for updates** is enabled for a container entry, SSH Docker also cre
 
 Navigate to **Settings → Updates** in Home Assistant. Containers with a pending image update are listed there. Click the container's update card and then **Install** to trigger a container recreation using the `docker_create` executable on the remote host — exactly the same operation as clicking **⬆ Update** in the sidebar panel.
 
-> **Requires** the `docker_create` executable to be present on the remote host. See [Custom Executables](#%EF%B8%8F-custom-executables) for details.
+> **Requires** the `docker_create` executable to be present on the remote host. See [Custom Executables](#-custom-executables) for details.
 
 While the installation is running the entity reports `in_progress: true` and the update card shows a progress indicator. Once completed the sensor is refreshed automatically to reflect the new container state.
 
@@ -384,6 +384,24 @@ SSH Docker ships with translations for the following languages:
 Community contributions for additional languages are welcome!
 
 ---
+
+## ❗ Error Codes
+
+Errors shown while adding or reconfiguring a container are prefixed with a code.
+
+| Code | Meaning                                                                                                                                       | What to do                                                                                                                                                                                        |
+|------|-----------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| E001 | Neither password nor key file was provided.                                                                                                   | Provide one of them.                                                                                                                                                                              |
+| E002 | Cannot connect to the remote host.                                                                                                            | Check host, port and network.                                                                                                                                                                     |
+| E003 | The docker command exited with an error. This also happens if the executable was not found when the command is prefixed (e.g. `sudo docker`). | Check the docker command, that the executable exists on the host (use its absolute path, e.g. `sudo /usr/bin/docker`), and that the user may run it (e.g. `sudo` or docker group).                |
+| E004 | The host key could not be verified.                                                                                                           | Check the known hosts file or disable the known hosts check.                                                                                                                                      |
+| E005 | SSH login failed.                                                                                                                             | Check username and password/key file.                                                                                                                                                             |
+| E006 | Host is not reachable.                                                                                                                        | Check the host address and network.                                                                                                                                                               |
+| E007 | The connection timed out.                                                                                                                     | Check that the host is online and the port is correct.                                                                                                                                            |
+| E008 | The container name was not found on the host.                                                                                                 | Check the name with `docker ps -a` on the host.                                                                                                                                                   |
+| E009 | The docker executable was not found (exit status 127).                                                                                        | Non-interactive SSH sessions may not have `docker` on the `PATH` (common on QNAP/Synology NAS). Enter the absolute path as Docker Command (e.g. `/usr/bin/docker`) or symlink it into `/usr/bin`. |
+| E010 | The known hosts file was not found (SSH check enabled).                                                                                       | Provide the path to an existing known hosts file, create the default `~/.ssh/known_hosts` of the user running Home Assistant, or disable *Check Known Hosts*.                                     |
+| E011 | The known hosts file was provided but 'Check Known Hosts' is disabled.                                                                        | Either enable 'Check Known Hosts' or remove the known hosts file path.                                                                                                                            |
 
 ## ⚠️ Known Issues
 

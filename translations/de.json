@@ -37,14 +37,17 @@
       }
     },
     "error": {
-      "password_or_key_file_required": "Es muss entweder ein Passwort oder eine Schlüsseldatei angegeben werden.",
-      "cannot_connect": "Es kann keine Verbindung zum entfernten Host hergestellt werden.",
-      "docker_command_failed": "Der Docker-Befehl ist fehlgeschlagen. Überprüfen Sie den Docker-Befehl und die Berechtigungen.",
-      "host_key_not_verifiable": "Der Host-Schlüssel konnte nicht verifiziert werden.",
-      "login_failed": "SSH-Anmeldung fehlgeschlagen. Überprüfen Sie Benutzername und Passwort/Schlüsseldatei.",
-      "host_not_reachable": "Host ist nicht erreichbar.",
-      "connection_timed_out": "Die Verbindung zum Host hat das Zeitlimit überschritten.",
-      "docker_service_not_found": "Der Dienstname wurde auf dem entfernten Host nicht gefunden. Überprüfen Sie den Namen und stellen Sie sicher, dass der Container existiert."
+      "password_or_key_file_required": "[E001] Es muss entweder ein Passwort oder eine Schlüsseldatei angegeben werden.",
+      "cannot_connect": "[E002] Es kann keine Verbindung zum entfernten Host hergestellt werden.",
+      "docker_command_failed": "[E003] Der Docker-Befehl ist fehlgeschlagen. Prüfen Sie, ob der Docker-Befehl korrekt ist, die ausführbare Datei auf dem entfernten Host existiert (verwenden Sie insbesondere mit `sudo` den absoluten Pfad) und der Benutzer sie ausführen darf.",
+      "host_key_not_verifiable": "[E004] Der Host-Schlüssel konnte nicht verifiziert werden.",
+      "login_failed": "[E005] SSH-Anmeldung fehlgeschlagen. Überprüfen Sie Benutzername und Passwort/Schlüsseldatei.",
+      "host_not_reachable": "[E006] Host ist nicht erreichbar.",
+      "connection_timed_out": "[E007] Die Verbindung zum Host hat das Zeitlimit überschritten.",
+      "docker_service_not_found": "[E008] Der Dienstname wurde auf dem entfernten Host nicht gefunden. Überprüfen Sie den Namen und stellen Sie sicher, dass der Container existiert.",
+      "docker_command_not_found": "[E009] Die ausführbare Docker-Datei wurde auf dem entfernten Host nicht gefunden. Verwenden Sie den absoluten Pfad zur Datei (z. B. /usr/bin/docker) oder fügen Sie sie dem PATH nicht-interaktiver SSH-Sitzungen hinzu.",
+      "known_hosts_not_found": "[E010] Die known_hosts-Datei wurde nicht gefunden. Geben Sie den Pfad zu einer vorhandenen known_hosts-Datei an, legen Sie die Standarddatei (~/.ssh/known_hosts) auf dem Home-Assistant-Rechner an oder deaktivieren Sie 'Bekannte Hosts prüfen'.",
+      "known_hosts_with_check_disabled": "[E011] Die known_hosts-Datei wurde angegeben, aber die Option 'Bekannte Hosts prüfen' ist deaktiviert. Entweder aktivieren Sie die Option oder entfernen Sie den Pfad zur known_hosts-Datei."
     },
     "abort": {
       "service_not_found": "Der Service ssh_command.execute wurde nicht gefunden. Bitte installiere SSH Command in HACS und füge die Integration hinzu.",
@@ -85,13 +88,16 @@
       }
     },
     "error": {
-      "password_or_key_file_required": "Es muss entweder ein Passwort oder eine Schlüsseldatei angegeben werden.",
-      "cannot_connect": "Es kann keine Verbindung zum entfernten Host hergestellt werden.",
-      "docker_command_failed": "Der Docker-Befehl ist fehlgeschlagen. Überprüfen Sie den Docker-Befehl und die Berechtigungen.",
-      "host_key_not_verifiable": "Der Host-Schlüssel konnte nicht verifiziert werden.",
-      "login_failed": "SSH-Anmeldung fehlgeschlagen. Überprüfen Sie Benutzername und Passwort/Schlüsseldatei.",
-      "host_not_reachable": "Host ist nicht erreichbar.",
-      "connection_timed_out": "Die Verbindung zum Host hat das Zeitlimit überschritten."
+      "password_or_key_file_required": "[E001] Es muss entweder ein Passwort oder eine Schlüsseldatei angegeben werden.",
+      "cannot_connect": "[E002] Es kann keine Verbindung zum entfernten Host hergestellt werden.",
+      "docker_command_failed": "[E003] Der Docker-Befehl ist fehlgeschlagen. Prüfen Sie, ob der Docker-Befehl korrekt ist, die ausführbare Datei auf dem entfernten Host existiert (verwenden Sie insbesondere mit `sudo` den absoluten Pfad) und der Benutzer sie ausführen darf.",
+      "host_key_not_verifiable": "[E004] Der Host-Schlüssel konnte nicht verifiziert werden.",
+      "login_failed": "[E005] SSH-Anmeldung fehlgeschlagen. Überprüfen Sie Benutzername und Passwort/Schlüsseldatei.",
+      "host_not_reachable": "[E006] Host ist nicht erreichbar.",
+      "connection_timed_out": "[E007] Die Verbindung zum Host hat das Zeitlimit überschritten.",
+      "docker_command_not_found": "[E009] Die ausführbare Docker-Datei wurde auf dem entfernten Host nicht gefunden. Verwenden Sie den absoluten Pfad zur Datei (z. B. /usr/bin/docker) oder fügen Sie sie dem PATH nicht-interaktiver SSH-Sitzungen hinzu.",
+      "known_hosts_not_found": "[E010] Die known_hosts-Datei wurde nicht gefunden. Geben Sie den Pfad zu einer vorhandenen known_hosts-Datei an, legen Sie die Standarddatei (~/.ssh/known_hosts) auf dem Home-Assistant-Rechner an oder deaktivieren Sie 'Bekannte Hosts prüfen'.",
+      "known_hosts_with_check_disabled": "[E011] Die known_hosts-Datei wurde angegeben, aber die Option 'Bekannte Hosts prüfen' ist deaktiviert. Entweder aktivieren Sie die Option oder entfernen Sie den Pfad zur known_hosts-Datei."
     }
   },
   "services": {

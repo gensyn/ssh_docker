@@ -75,6 +75,8 @@ async def validate_and_build_options(
                 user_input[CONF_HOST],
                 exit_status,
             )
+            if exit_status == 127:
+                return {}, "docker_command_not_found"
             return {}, "docker_command_failed"
     except ServiceValidationError as exc:
         translation_key = exc.translation_key if hasattr(exc, "translation_key") else "cannot_connect"
@@ -90,6 +92,23 @@ async def validate_and_build_options(
             user_input[CONF_HOST],
             exc,
         )
+        return {}, "cannot_connect"
+    except FileNotFoundError as exc:
+        _LOGGER.warning(
+            "SSH validation for host %s raised FileNotFoundError: %s",
+            user_input[CONF_HOST],
+            exc,
+        )
+        from pathlib import Path
+
+        known_hosts = user_input.get(CONF_KNOWN_HOSTS) or "~/.ssh/known_hosts"
+        if (
+            user_input.get(CONF_CHECK_KNOWN_HOSTS, DEFAULT_CHECK_KNOWN_HOSTS)
+            and exc.filename is not None
+            and Path(exc.filename).expanduser().absolute()
+            == Path(known_hosts).expanduser().absolute()
+        ):
+            return {}, "known_hosts_not_found"
         return {}, "cannot_connect"
     except Exception as exc:  # pylint: disable=broad-except
         _LOGGER.warning(
