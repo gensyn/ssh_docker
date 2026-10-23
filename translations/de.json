@@ -39,7 +39,7 @@
     "error": {
       "password_or_key_file_required": "[E001] Es muss entweder ein Passwort oder eine Schlüsseldatei angegeben werden.",
       "cannot_connect": "[E002] Es kann keine Verbindung zum entfernten Host hergestellt werden.",
-      "docker_command_failed": "[E003] Der Docker-Befehl ist fehlgeschlagen. Prüfen Sie, ob der Docker-Befehl korrekt ist und der Benutzer ihn ausführen darf.",
+      "docker_command_failed": "[E003] Der Docker-Befehl ist fehlgeschlagen. Prüfen Sie, ob der Docker-Befehl korrekt ist, die ausführbare Datei auf dem entfernten Host existiert (verwenden Sie insbesondere mit `sudo` den absoluten Pfad) und der Benutzer sie ausführen darf.",
       "docker_command_not_found": "[E009] Die ausführbare Docker-Datei wurde auf dem entfernten Host nicht gefunden. Verwenden Sie den absoluten Pfad zur Datei (z. B. /usr/bin/docker) oder fügen Sie sie dem PATH nicht-interaktiver SSH-Sitzungen hinzu.",
       "host_key_not_verifiable": "[E004] Der Host-Schlüssel konnte nicht verifiziert werden.",
       "login_failed": "[E005] SSH-Anmeldung fehlgeschlagen. Überprüfen Sie Benutzername und Passwort/Schlüsseldatei.",
@@ -88,7 +88,7 @@
     "error": {
       "password_or_key_file_required": "[E001] Es muss entweder ein Passwort oder eine Schlüsseldatei angegeben werden.",
       "cannot_connect": "[E002] Es kann keine Verbindung zum entfernten Host hergestellt werden.",
-      "docker_command_failed": "[E003] Der Docker-Befehl ist fehlgeschlagen. Prüfen Sie, ob der Docker-Befehl korrekt ist und der Benutzer ihn ausführen darf.",
+      "docker_command_failed": "[E003] Der Docker-Befehl ist fehlgeschlagen. Prüfen Sie, ob der Docker-Befehl korrekt ist, die ausführbare Datei auf dem entfernten Host existiert (verwenden Sie insbesondere mit `sudo` den absoluten Pfad) und der Benutzer sie ausführen darf.",
       "docker_command_not_found": "[E009] Die ausführbare Docker-Datei wurde auf dem entfernten Host nicht gefunden. Verwenden Sie den absoluten Pfad zur Datei (z. B. /usr/bin/docker) oder fügen Sie sie dem PATH nicht-interaktiver SSH-Sitzungen hinzu.",
       "host_key_not_verifiable": "[E004] Der Host-Schlüssel konnte nicht verifiziert werden.",
       "login_failed": "[E005] SSH-Anmeldung fehlgeschlagen. Überprüfen Sie Benutzername und Passwort/Schlüsseldatei.",

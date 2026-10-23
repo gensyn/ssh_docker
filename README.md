@@ -393,7 +393,7 @@ Errors shown while adding or reconfiguring a container are prefixed with a code.
 |------|---------|------------|
 | E001 | Neither password nor key file was provided. | Provide one of them. |
 | E002 | Cannot connect to the remote host. | Check host, port and network. |
-| E003 | The docker command exited with an error. | Check the docker command and that the user may run it (e.g. `sudo` or docker group). |
+| E003 | The docker command exited with an error. This also happens if the executable was not found when the command is prefixed (e.g. `sudo docker`). | Check the docker command, that the executable exists on the host (use its absolute path, e.g. `sudo /usr/bin/docker`), and that the user may run it (e.g. `sudo` or docker group). |
 | E004 | The host key could not be verified. | Check the known hosts file or disable the known hosts check. |
 | E005 | SSH login failed. | Check username and password/key file. |
 | E006 | Host is not reachable. | Check the host address and network. |

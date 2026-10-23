@@ -39,7 +39,7 @@
     "error": {
       "password_or_key_file_required": "[E001] Either password or key file must be provided.",
       "cannot_connect": "[E002] Cannot connect to the remote host.",
-      "docker_command_failed": "[E003] The docker command failed. Check that the docker command is correct and that the user has permission to run it.",
+      "docker_command_failed": "[E003] The docker command failed. Check that the docker command is correct, that the executable exists on the remote host (use its absolute path, especially with `sudo`), and that the user has permission to run it.",
       "docker_command_not_found": "[E009] The docker executable was not found on the remote host. Use the absolute path to the executable (e.g. /usr/bin/docker) or add it to the PATH of non-interactive SSH sessions.",
       "host_key_not_verifiable": "[E004] The host key could not be verified.",
       "login_failed": "[E005] SSH login failed. Check username and password/key file.",
@@ -88,7 +88,7 @@
     "error": {
       "password_or_key_file_required": "[E001] Either password or key file must be provided.",
       "cannot_connect": "[E002] Cannot connect to the remote host.",
-      "docker_command_failed": "[E003] The docker command failed. Check that the docker command is correct and that the user has permission to run it.",
+      "docker_command_failed": "[E003] The docker command failed. Check that the docker command is correct, that the executable exists on the remote host (use its absolute path, especially with `sudo`), and that the user has permission to run it.",
       "docker_command_not_found": "[E009] The docker executable was not found on the remote host. Use the absolute path to the executable (e.g. /usr/bin/docker) or add it to the PATH of non-interactive SSH sessions.",
       "host_key_not_verifiable": "[E004] The host key could not be verified.",
       "login_failed": "[E005] SSH login failed. Check username and password/key file.",

@@ -16,7 +16,7 @@ from .const import (
     CONF_DOCKER_COMMAND, CONF_AUTO_UPDATE, CONF_CHECK_FOR_UPDATES,
     DEFAULT_DOCKER_COMMAND, DEFAULT_PORT, DEFAULT_PASSPHRASE, DEFAULT_CHECK_KNOWN_HOSTS, DEFAULT_AUTO_UPDATE,
     DEFAULT_CHECK_FOR_UPDATES, DEFAULT_TIMEOUT,
-    SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE, SSH_CONF_EXIT_STATUS, SSH_CONF_OUTPUT, SSH_CONF_ERROR,
+    SSH_COMMAND_DOMAIN, SSH_COMMAND_SERVICE_EXECUTE, SSH_CONF_EXIT_STATUS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -75,10 +75,7 @@ async def validate_and_build_options(
                 user_input[CONF_HOST],
                 exit_status,
             )
-            messages = " ".join(
-                str(response.get(key) or "") for key in (SSH_CONF_OUTPUT, SSH_CONF_ERROR)
-            ).lower() if response else ""
-            if exit_status == 127 or "not found" in messages:
+            if exit_status == 127:
                 return {}, "docker_command_not_found"
             return {}, "docker_command_failed"
     except ServiceValidationError as exc:
