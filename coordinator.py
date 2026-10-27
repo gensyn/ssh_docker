@@ -368,6 +368,13 @@ class SshDockerCoordinator:
 
         docker_create_available = await self._check_docker_create_available(options)
 
+        auto_update_due = (
+            update_available
+            and options.get(CONF_AUTO_UPDATE, False)
+            and not self._in_auto_update
+        )
+        auto_updating = auto_update_due and docker_create_available
+
         _LOGGER.debug(
             "Container %s state: %s, update_available: %s",
             service,
@@ -384,12 +391,13 @@ class SshDockerCoordinator:
                 "host": host,
                 "docker_create_available": docker_create_available,
             },
-            "update_available": update_available,
+            # Hide the update from the update entity while it is installed in the background.
+            "update_available": update_available and not auto_updating,
             "installed_image_id": old_image_id.strip(),
             "latest_image_id": new_image_id,
         }
 
-        if update_available and options.get(CONF_AUTO_UPDATE, False) and not self._in_auto_update:
+        if auto_update_due:
             self._in_auto_update = True
             try:
                 self.set_pending_state("recreating")
