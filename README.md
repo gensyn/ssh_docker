@@ -4,7 +4,7 @@
 [![GitHub release](https://img.shields.io/github/release/gensyn/ssh_docker.svg)](https://github.com/gensyn/ssh_docker/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Home Assistant custom component that monitors and controls Docker containers on remote hosts over SSH. All communication with the remote host is performed through the [`ssh_command`](https://github.com/gensyn/ssh_command) integration, which must be installed as a dependency.
+A Home Assistant custom component that monitors and controls Docker containers on remote hosts over SSH. All communication with the remote host is performed through the [`SSH Command`](https://github.com/gensyn/ssh_command) integration, which must be installed as a dependency.
 
 ---
 
