@@ -1,6 +1,6 @@
 """Integration tests for the SSH Docker custom component.
 
-These tests use ``pytest-homeassistant-custom-component`` which spins up a
+These tests use ``pytest-homeassistant`` which spins up a
 real (in-process) Home Assistant instance per test.  No hand-rolled mocks are
 needed: the ``hass`` fixture IS a real ``HomeAssistant`` object, and entities,
 states, and services all behave exactly as they do at runtime.
@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.ssh_docker.const import (
     CONF_AUTO_UPDATE,
