@@ -1,4 +1,4 @@
-"""pytest-homeassistant-custom-component conftest for SSH Docker integration tests.
+"""pytest-homeassistant conftest for SSH Docker integration tests.
 
 This file wires the component (which lives at the repo root, not inside a
 conventional ``custom_components/`` sub-directory) into Home Assistant's custom
@@ -98,11 +98,6 @@ async def _default_ssh_run(hass, options, command, timeout=60):
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
-    """Enable custom integrations for every test in this package."""
 
 
 @pytest.fixture(autouse=True)
