@@ -194,7 +194,7 @@ target:
 
 ### `ssh_docker.stop`
 
-Stops the Docker container. The sensor state transitions to `stopping` while the operation runs.
+Refreshes the container state, then stops it if it is running or starting. Otherwise, it logs a warning and takes no action. The sensor state transitions to `stopping` while the operation runs.
 
 ```yaml
 action: ssh_docker.stop
@@ -204,7 +204,7 @@ target:
 
 ### `ssh_docker.remove`
 
-Stops and removes the Docker container. The sensor state transitions to `removing` while the operation runs.
+Refreshes the container state, then stops and removes it if it exists. If it does not exist or its state cannot be determined, it logs a warning and takes no action. The sensor state transitions to `removing` while the operation runs.
 
 ```yaml
 action: ssh_docker.remove

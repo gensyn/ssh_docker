@@ -78,6 +78,167 @@ class TestAsyncSetup(unittest.IsolatedAsyncioTestCase):
         mock_register.assert_awaited_once()
 
 
+class TestStopAndRemoveServices(unittest.IsolatedAsyncioTestCase):
+    """Test state checks before stop and remove services."""
+
+    async def asyncSetUp(self):
+        """Register the service handlers with a real coordinator."""
+        from ssh_docker.coordinator import SshDockerCoordinator
+
+        self.entry = _make_entry()
+        self.entry.options["check_for_updates"] = True
+        self.entry.options["auto_update"] = True
+        self.hass = MagicMock()
+        self.hass.data = {}
+        self.coordinator = SshDockerCoordinator(self.hass, self.entry)
+        with patch("ssh_docker.SshDockerPanelRegistration") as panel:
+            panel.return_value.async_register = AsyncMock()
+            await async_setup(self.hass, {})
+        self.handlers = {
+            call.args[1]: call.args[2]
+            for call in self.hass.services.async_register.call_args_list
+        }
+        self.service_call = MagicMock(data={"entity_id": "sensor.my_container"})
+        self.commands = []
+        self.state = "running"
+        self.action_exit_status = 0
+        self.inspect_error = None
+
+    async def _run_service(self, service):
+        async def run_ssh(_hass, _options, command, timeout=60):
+            self.commands.append(command)
+            if " inspect " in command:
+                if self.inspect_error is not None:
+                    raise self.inspect_error
+                if self.state is None:
+                    return "", 1
+                return f"{self.state};created;image;sha256:old", 0
+            if "docker_create" in command:
+                return "found", 0
+            return "", self.action_exit_status
+
+        with patch("ssh_docker._get_entry_for_entity", return_value=self.entry), \
+             patch("ssh_docker._get_coordinator", return_value=self.coordinator), \
+             patch("ssh_docker.coordinator._ssh_run", side_effect=run_ssh):
+            await self.handlers[service](self.service_call)
+
+    async def test_stop_skips_stale_running_state(self):
+        """A freshly stopped or missing container is not stopped again."""
+        for state in ("exited", "created", "paused", "dead", None):
+            with self.subTest(state=state):
+                self.commands.clear()
+                self.state = state
+                self.coordinator.data["state"] = "running"
+                with self.assertLogs("ssh_docker", level="WARNING"):
+                    await self._run_service(SERVICE_STOP)
+                self.assertFalse(any(" stop " in cmd for cmd in self.commands))
+                self.assertIsNone(self.coordinator.pending_state)
+                self.assertEqual(self.coordinator.data["state"], state or "unavailable")
+
+    async def test_stop_running_states_refreshes_before_and_after(self):
+        """Running and starting states are stopped even when cached state is stale."""
+        for state in ("running", "starting", "restarting"):
+            with self.subTest(state=state):
+                self.commands.clear()
+                self.state = state
+                self.coordinator.data["state"] = "exited"
+                await self._run_service(SERVICE_STOP)
+                inspect_indices = [i for i, cmd in enumerate(self.commands) if " inspect " in cmd]
+                stop_index = next(i for i, cmd in enumerate(self.commands) if " stop " in cmd)
+                self.assertEqual(len(inspect_indices), 2)
+                self.assertLess(inspect_indices[0], stop_index)
+                self.assertLess(stop_index, inspect_indices[1])
+                self.assertIsNone(self.coordinator.pending_state)
+
+    async def test_remove_skips_missing_container(self):
+        """A missing container is a warning, not a failed Docker command."""
+        self.coordinator.data["state"] = "running"
+        self.state = None
+        with self.assertLogs("ssh_docker", level="WARNING"):
+            await self._run_service(SERVICE_REMOVE)
+        self.assertFalse(any(" stop " in cmd or " rm " in cmd for cmd in self.commands))
+        self.assertEqual(self.coordinator.data["state"], "unavailable")
+        self.assertIsNone(self.coordinator.pending_state)
+
+    async def test_unreachable_container_does_not_run_action(self):
+        """An inspect error does not imply that changing container state failed."""
+        self.inspect_error = OSError("Connection refused")
+        for service in (SERVICE_STOP, SERVICE_REMOVE):
+            with self.subTest(service=service):
+                self.commands.clear()
+                with self.assertLogs("ssh_docker", level="WARNING"):
+                    await self._run_service(service)
+                self.assertFalse(any(" stop " in cmd or " rm " in cmd for cmd in self.commands))
+                self.assertEqual(self.coordinator.data["state"], "unavailable")
+
+    async def test_remove_existing_stopped_container(self):
+        """An existing stopped container is removed despite stale unavailable data."""
+        self.state = "exited"
+        self.coordinator.data["state"] = "unavailable"
+        await self._run_service(SERVICE_REMOVE)
+        inspect_indices = [i for i, cmd in enumerate(self.commands) if " inspect " in cmd]
+        remove_index = next(i for i, cmd in enumerate(self.commands) if " rm " in cmd)
+        self.assertEqual(len(inspect_indices), 2)
+        self.assertLess(inspect_indices[0], remove_index)
+        self.assertLess(remove_index, inspect_indices[1])
+
+    async def test_action_failure_still_raises_and_refreshes(self):
+        """An actual failed stop or removal remains an error."""
+        from homeassistant.exceptions import ServiceValidationError
+
+        for service in (SERVICE_STOP, SERVICE_REMOVE):
+            with self.subTest(service=service):
+                self.commands.clear()
+                self.action_exit_status = 1
+                with self.assertRaises(ServiceValidationError):
+                    await self._run_service(service)
+                self.assertEqual(sum(" inspect " in cmd for cmd in self.commands), 2)
+                self.assertIsNone(self.coordinator.pending_state)
+
+    async def test_action_refresh_does_not_trigger_auto_update(self):
+        """State-only refresh preserves update information without pulling or recreating."""
+        self.coordinator.data.update({
+            "installed_image_id": "sha256:old",
+            "latest_image_id": "sha256:new",
+            "update_available": True,
+        })
+        self.state = "exited"
+        with self.assertLogs("ssh_docker", level="WARNING"):
+            await self._run_service(SERVICE_STOP)
+        self.assertFalse(any(" pull " in cmd for cmd in self.commands))
+        self.assertTrue(self.coordinator.data["update_available"])
+        self.assertEqual(self.coordinator.data["latest_image_id"], "sha256:new")
+
+    async def test_action_refresh_does_not_auto_update_after_action(self):
+        """Neither preflight nor follow-up refresh pulls or recreates the container."""
+        for service in (SERVICE_STOP, SERVICE_REMOVE):
+            with self.subTest(service=service):
+                self.commands.clear()
+                self.state = "running"
+                self.coordinator.data.update({
+                    "installed_image_id": "sha256:old",
+                    "latest_image_id": "sha256:new",
+                    "update_available": True,
+                })
+                await self._run_service(service)
+                self.assertFalse(any(" pull " in cmd for cmd in self.commands))
+                self.assertFalse(any("docker_create my_container" in cmd for cmd in self.commands))
+                self.assertTrue(self.coordinator.data["update_available"])
+
+    async def test_state_only_refresh_clears_stale_update_for_changed_image(self):
+        """An update for a previous container image is not attributed to a new one."""
+        self.coordinator.data.update({
+            "installed_image_id": "sha256:previous",
+            "latest_image_id": "sha256:new",
+            "update_available": True,
+        })
+        self.state = "exited"
+        with self.assertLogs("ssh_docker", level="WARNING"):
+            await self._run_service(SERVICE_STOP)
+        self.assertFalse(self.coordinator.data["update_available"])
+        self.assertIsNone(self.coordinator.data["latest_image_id"])
+
+
 class TestSshDockerPanelRegistration(unittest.IsolatedAsyncioTestCase):
     """Test SshDockerPanelRegistration sidebar panel registration."""
 
