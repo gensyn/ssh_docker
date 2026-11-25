@@ -264,13 +264,13 @@ class SshDockerCoordinator:
     # Data refresh
     # ------------------------------------------------------------------
 
-    async def async_request_refresh(self) -> None:
+    async def async_request_refresh(self, *, check_updates: bool = True) -> None:
         """Fetch fresh state from the remote host, clear pending state, notify."""
-        await self._async_fetch_data()
+        await self._async_fetch_data(check_updates=check_updates)
         self._pending_state = None
         self._async_notify_listeners()
 
-    async def _async_fetch_data(self) -> None:
+    async def _async_fetch_data(self, *, check_updates: bool = True) -> None:
         """Fetch the container state from the remote host via SSH."""
         options = dict(self.entry.options)
         docker_cmd = options.get(CONF_DOCKER_COMMAND, DEFAULT_DOCKER_COMMAND)
@@ -342,9 +342,14 @@ class SshDockerCoordinator:
 
         container_state, created, image_name, old_image_id = parts
 
-        update_available = False
-        new_image_id: str | None = None
-        if options.get(CONF_CHECK_FOR_UPDATES, False):
+        same_image = self.data.get("installed_image_id") == old_image_id.strip()
+        update_available = (
+            self.data.get("update_available", False) if not check_updates and same_image else False
+        )
+        new_image_id: str | None = (
+            self.data.get("latest_image_id") if not check_updates and same_image else None
+        )
+        if check_updates and options.get(CONF_CHECK_FOR_UPDATES, False):
             self.set_pending_state("pulling")
             pull_cmd = (
                 f"{docker_cmd} pull {shlex.quote(image_name)} > /dev/null 2>&1;"
@@ -369,7 +374,8 @@ class SshDockerCoordinator:
         docker_create_available = await self._check_docker_create_available(options)
 
         auto_update_due = (
-            update_available
+            check_updates
+            and update_available
             and options.get(CONF_AUTO_UPDATE, False)
             and not self._in_auto_update
         )

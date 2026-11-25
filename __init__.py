@@ -23,7 +23,9 @@ from .const import (
     DEFAULT_AUTO_UPDATE, DEFAULT_CHECK_FOR_UPDATES,
     DOCKER_SERVICES_EXECUTABLE,
 )
-from .coordinator import SshDockerCoordinator, _ssh_run, _check_service_available
+from .coordinator import (
+    STATE_UNAVAILABLE, STATE_UNKNOWN, SshDockerCoordinator, _ssh_run, _check_service_available,
+)
 from .frontend import SshDockerPanelRegistration
 
 _PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.UPDATE]
@@ -121,11 +123,18 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         _LOGGER.debug("Service 'stop' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         coordinator = _get_coordinator(hass, entry)
+        await coordinator.async_request_refresh(check_updates=False)
+        if coordinator.data["state"] not in {"running", "starting", "restarting"}:
+            _LOGGER.warning(
+                "Container %s is not running (state: %s); skipping stop",
+                entity_id, coordinator.data["state"],
+            )
+            return
         coordinator.set_pending_state("stopping")
         try:
             await coordinator.stop()
         finally:
-            await coordinator.async_request_refresh()
+            await coordinator.async_request_refresh(check_updates=False)
 
     async def async_remove(service_call: ServiceCall) -> None:
         """Stop and remove a docker container."""
@@ -133,11 +142,17 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
         _LOGGER.debug("Service 'remove' called for entity %s", entity_id)
         entry = _get_entry_for_entity(hass, entity_id)
         coordinator = _get_coordinator(hass, entry)
+        await coordinator.async_request_refresh(check_updates=False)
+        if coordinator.data["state"] in {STATE_UNAVAILABLE, STATE_UNKNOWN}:
+            _LOGGER.warning(
+                "Container %s does not exist or is unavailable; skipping removal", entity_id
+            )
+            return
         coordinator.set_pending_state("removing")
         try:
             await coordinator.remove()
         finally:
-            await coordinator.async_request_refresh()
+            await coordinator.async_request_refresh(check_updates=False)
 
     hass.services.async_register(DOMAIN, SERVICE_CREATE, async_create, schema=SERVICE_ENTITY_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_RESTART, async_restart, schema=SERVICE_ENTITY_SCHEMA)
